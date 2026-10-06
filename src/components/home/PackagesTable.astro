@@ -10,14 +10,14 @@ interface Props {
 
 const { packages, reactNative } = Astro.props;
 
-const CELL_LABEL = { no: 'No', untested: 'Untested' } as const;
+const CELL_LABEL = { no: 'Fail', untested: 'Untested' } as const;
 ---
 
 <div class="packages-card card">
   <div class="scroll-frame" data-scroll-frame>
   <div class="table-scroll" data-table-scroll data-scroll-start="end">
     <table style={`--cols: ${reactNative.length}`}>
-      <caption class="sr-only">Newest release of each package that works on each React Native version</caption>
+      <caption class="sr-only">Newest release of each package that passes on each React Native version</caption>
       <colgroup>
         <col class="col-package" />
         {reactNative.map(() => <col />)}
@@ -63,7 +63,8 @@ const CELL_LABEL = { no: 'No', untested: 'Untested' } as const;
                   <td>
                     <div class:list={['cell', `cell-${cell.kind}`]}>
                       {cell.kind === 'latest' || cell.kind === 'older' ? `${cell.line}.x` : CELL_LABEL[cell.kind]}
-                      {cell.kind === 'older' && <span class="sr-only"> (older release)</span>}
+                      {cell.kind === 'latest' && <span class="sr-only"> (passes)</span>}
+                      {cell.kind === 'older' && <span class="sr-only"> (older release passes)</span>}
                     </div>
                   </td>
                 );
@@ -85,9 +86,9 @@ const CELL_LABEL = { no: 'No', untested: 'Untested' } as const;
   </div>
 
   <div class="legend">
-    <div class="legend-item"><span class="swatch swatch-yes"></span><span>Latest release works</span></div>
-    <div class="legend-item"><span class="swatch swatch-older"></span><span>An older release works</span></div>
-    <div class="legend-item"><span class="swatch swatch-no"></span><span>No release works</span></div>
+    <div class="legend-item"><span class="swatch swatch-yes"></span><span>Latest release passes</span></div>
+    <div class="legend-item"><span class="swatch swatch-older"></span><span>An older release passes</span></div>
+    <div class="legend-item"><span class="swatch swatch-no"></span><span>No release passes</span></div>
     <div class="legend-item"><span class="swatch swatch-queued"></span><span>Untested</span></div>
   </div>
 </div>

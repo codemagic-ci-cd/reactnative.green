@@ -23,7 +23,7 @@ const steps = [
   },
   {
     title: 'The tests run',
-    text: "The library's test suite runs on the same version. The build and the tests must both pass to earn a Yes. A library with no test suite is judged on its builds.",
+    text: "The library's test suite runs on the same version. The build and the tests must both pass. A library with no test suite is judged on its builds.",
   },
 ];
 ---
@@ -36,9 +36,9 @@ const steps = [
     <section class="hero">
       <div class="hero-text">
         <div class="eyebrow">React Native library compatibility</div>
-        <h1>Will it work on your React Native version?</h1>
+        <h1>Is your package passing its tests for the latest React Native versions?</h1>
         <p class="lede">
-          rn.green builds each library's demo app against every React Native release and runs its test suite, if it has one. A
+          rn.green builds each library's demo app against the latest React Native releases and runs its test suite, if it has one. A
           cell turns green only when everything passes.
         </p>
         <form class="search" role="search" action="/#packages" method="get" data-search>
@@ -60,7 +60,7 @@ const steps = [
     <section id="packages" class="packages" aria-labelledby="packages-title">
       <div class="section-head">
         <h2 id="packages-title">Packages</h2>
-        <p>Newest release that works on each React Native version</p>
+        <p>Newest release that passes on each React Native version. Click a package name for more details.</p>
       </div>
       <PackagesTable packages={packages} reactNative={reactNative} />
     </section>
