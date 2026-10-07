@@ -10,12 +10,12 @@
 // (through its own retry settings), `pod install` and `expo prebuild`. When the demo app's own
 // CocoaPods setup fails, `pod install` is tried once more with the machine's own (podInstall).
 // When Gradle cannot see an Android platform that was installed under a dotted name (android-37.0
-// for the hash android-37), the compile SDK is pointed at that directory and the build runs once more.
-import { appendFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+// for the hash android-37), that platform is copied to the plain name and the build runs once more.
+import { appendFileSync, cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
 import { failureLine, findMachinePod, stalePodPaths } from './lib/cocoapods.mjs';
 import { outDir, readJson, workDir, writeJson } from './lib/config.mjs';
-import { gradleVersionOf, missingAndroidApi, planDottedCompileSdk, planGradleWrapper, platformAlias, withDistributionUrl, WRAPPER_PROPERTIES } from './lib/gradle.mjs';
+import { gradleVersionOf, missingAndroidApi, plainPlatformIdentity, planGradleWrapper, platformAlias, withDistributionUrl, WRAPPER_PROPERTIES } from './lib/gradle.mjs';
 import { commands, packageManager, readInputs, repoPath, toolEnv } from './lib/library.mjs';
 import { capture, fail, run } from './lib/proc.mjs';
 
@@ -107,10 +107,10 @@ async function android() {
   if (bootstrapped !== 0) return bootstrapped;
   const built = await assembleDebug(androidDir);
   if (built === 0) return built;
-  // The platform is often downloaded during this build, so the compile SDK change has to come after the failure.
-  const pointed = pointCompileSdkAtInstalledPlatform(readFileSync(log, 'utf8'));
-  if (!pointed) return built;
-  note(`Android SDK: compile SDK ${pointed.api} is installed as ${pointed.hash}. Set that name in ${pointed.paths.join(', ')}, and building once more.`);
+  // The platform is often downloaded during this build, so the copy has to come after the failure.
+  const copied = copyPlainAndroidPlatform(readFileSync(log, 'utf8'));
+  if (!copied) return built;
+  note(`Android SDK: copied platforms/${copied.from} to platforms/android-${copied.api} and named it android-${copied.api}, and building once more.`);
   return assembleDebug(androidDir);
 }
 
@@ -118,89 +118,48 @@ function assembleDebug(androidDir) {
   return steps([['./gradlew', ASSEMBLE_DEBUG, { cwd: androidDir }]]);
 }
 
+const PLATFORM_IDENTITY_FILES = ['package.xml', 'source.properties', 'sdk.properties'];
+
 /**
- * Google installs a platform as `android-37.0` while a compile SDK of 37 looks up `android-37`.
- * Point the Gradle files that ask for that API at the dotted directory. A symlink left at the plain
- * name is removed first: the SDK follows it and still calls the folder `android-37.0`.
- * @returns {{ api: string, hash: string, paths: string[] } | null}
+ * Google installs a platform as `android-37.0` while every module with compile SDK 37 looks up
+ * `android-37`. Copy the dotted directory to the plain name and rewrite its package id, so the
+ * lookup matches whatever module asks. A symlink at the plain name is removed first: the SDK follows
+ * it and still calls the folder `android-37.0`.
+ * @returns {{ api: string, from: string } | null}
  */
-function pointCompileSdkAtInstalledPlatform(logText) {
+function copyPlainAndroidPlatform(logText) {
   const api = missingAndroidApi(logText);
   const root = process.env.ANDROID_SDK_ROOT || process.env.ANDROID_HOME;
   if (!api || !root) return null;
-  const plain = join(root, 'platforms', `android-${api}`);
+  const platforms = join(root, 'platforms');
+  const plainName = `android-${api}`;
+  const plainPath = join(platforms, plainName);
   try {
-    if (lstatSync(plain).isSymbolicLink()) unlinkSync(plain);
+    if (lstatSync(plainPath).isSymbolicLink()) unlinkSync(plainPath);
   } catch {
     // No plain directory to remove.
   }
   let names;
   try {
-    names = readdirSync(join(root, 'platforms'));
+    names = readdirSync(platforms);
   } catch {
     return null;
   }
-  const hash = platformAlias(api, names);
-  if (!hash) return null;
-  const files = nativeGradleFiles().map((path) => ({ path, text: readFileSync(path, 'utf8') }));
-  const changed = planDottedCompileSdk(files, api, hash);
-  for (const file of changed) writeFileSync(file.path, file.text);
-  if (changed.length === 0) return null;
-  return { api, hash, paths: changed.map((file) => relative(repoPath('.'), file.path)) };
-}
-
-function nativeGradleFiles() {
-  const library = repoPath('.');
-  const files = [...walkGradle(join(demo, 'android')), ...walkGradle(join(library, 'android'))];
-  for (const modules of [join(demo, 'node_modules'), join(library, 'node_modules')]) files.push(...moduleGradleFiles(modules));
-  return [...new Set(files)];
-}
-
-function walkGradle(dir) {
-  const found = [];
-  let entries;
+  const fromName = platformAlias(api, names);
+  if (!fromName) return null;
   try {
-    entries = readdirSync(dir, { withFileTypes: true });
+    cpSync(join(platforms, fromName), plainPath, { recursive: true, dereference: true });
+    for (const name of PLATFORM_IDENTITY_FILES) {
+      const file = join(plainPath, name);
+      if (!existsSync(file)) continue;
+      const text = readFileSync(file, 'utf8');
+      const next = plainPlatformIdentity(text, fromName, plainName);
+      if (next !== text) writeFileSync(file, next);
+    }
   } catch {
-    return found;
+    return null;
   }
-  for (const entry of entries) {
-    if (entry.name === 'build' || entry.name === '.gradle') continue;
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) found.push(...walkGradle(path));
-    else if (entry.name === 'build.gradle' || entry.name === 'build.gradle.kts') found.push(path);
-  }
-  return found;
-}
-
-function moduleGradleFiles(modules) {
-  const found = [];
-  let entries;
-  try {
-    entries = readdirSync(modules, { withFileTypes: true });
-  } catch {
-    return found;
-  }
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const dir = join(modules, entry.name);
-    if (entry.name.startsWith('@')) {
-      let scoped;
-      try {
-        scoped = readdirSync(dir, { withFileTypes: true });
-      } catch {
-        continue;
-      }
-      for (const child of scoped) {
-        if (child.isDirectory()) found.push(...gradleAt(join(dir, child.name, 'android')));
-      }
-    } else found.push(...gradleAt(join(dir, 'android')));
-  }
-  return found;
-}
-
-function gradleAt(dir) {
-  return ['build.gradle', 'build.gradle.kts'].map((name) => join(dir, name)).filter(existsSync);
+  return { api, from: fromName };
 }
 
 /**

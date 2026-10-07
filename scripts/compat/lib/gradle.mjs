@@ -58,32 +58,19 @@ export function platformAlias(api, names) {
 }
 
 /**
- * Compile SDK lines that ask for `api` (a literal, or a property this project sets to that integer),
- * rewritten to the installed platform's directory name. `compileSdkVersion = 37` in an `ext` block is
- * left as a number: library build files compare it. Returns the files whose text changed.
- * @param {{ path: string, text: string }[]} files
- * @param {string} api
- * @param {string} hash directory name, such as "android-37.0"
- * @returns {{ path: string, text: string }[]}
+ * A copy of a dotted platform (`android-37.0`) renamed so Gradle's hash `android-37` matches it.
+ * The package id, the API level in source.properties, and `<api-level>` change. Other text, including
+ * a build-tools revision such as 37.0.0, stays.
+ * @param {string} text
+ * @param {string} fromName directory name, such as "android-37.0"
+ * @param {string} toName directory name, such as "android-37"
  */
-export function planDottedCompileSdk(files, api, hash) {
-  if (!/^\d+$/.test(api ?? '') || !/^android-\d+\.\d+$/.test(hash ?? '')) return [];
-  const extMatches = files.some((file) => new RegExp(`(?:^|\\n)[ \\t]*compileSdkVersion\\s*=\\s*${api}\\b`).test(file.text));
-  const changed = [];
-  for (const file of files) {
-    const text = rewriteCompileSdk(file.text, api, hash, extMatches, file.path.endsWith('.kts'));
-    if (text !== file.text) changed.push({ path: file.path, text });
-  }
-  return changed;
-}
-
-function rewriteCompileSdk(text, api, hash, extMatches, kts) {
-  const quoted = kts ? `compileSdkVersion("${hash}")` : `compileSdkVersion "${hash}"`;
-  const uses = text.replace(/^([ \t]*)compileSdk(Version)?[ \t]+(.+?)[ \t]*$/gm, (line, indent, _suffix, rhs) => {
-    if (rhs.startsWith('=')) return line;
-    const literal = rhs === api;
-    const viaExt = extMatches && /\bcompileSdk(?:Version)?\b/.test(rhs);
-    return literal || viaExt ? `${indent}${quoted}` : line;
-  });
-  return uses.replace(/^([ \t]*)compileSdk[ \t]*=[ \t]*(\d+)[ \t]*$/gm, (line, indent, level) => (level === api ? `${indent}${quoted}` : line));
+export function plainPlatformIdentity(text, fromName, toName) {
+  if (!/^android-\d+\.\d+$/.test(fromName ?? '') || !/^android-\d+$/.test(toName ?? '')) return text ?? '';
+  const fromApi = fromName.slice('android-'.length);
+  const toApi = toName.slice('android-'.length);
+  return (text ?? '')
+    .replaceAll(`platforms;${fromName}`, `platforms;${toName}`)
+    .replaceAll(`AndroidVersion.ApiLevel=${fromApi}`, `AndroidVersion.ApiLevel=${toApi}`)
+    .replaceAll(`<api-level>${fromApi}</api-level>`, `<api-level>${toApi}</api-level>`);
 }
