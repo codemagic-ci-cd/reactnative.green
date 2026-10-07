@@ -278,10 +278,10 @@ Lockfiles are regenerated. Each check then runs the package's `setup.prepare` co
 build runs `expo prebuild` for Expo demo apps, and iOS runs `pod install` and builds for the
 simulator without code signing, while Android builds one architecture in debug. If that build
 fails because Gradle cannot find `android-37` and the SDK has installed the platform as
-`android-37.0` (or another dotted name), the plain name is linked to that directory and the build
-is run once more. A platform already installed under the plain name is left as it is. The link is
-in the machine's SDK, not in the demo app, and the Android log says when one was added. All of that
-counts as the platform's build.
+`android-37.0` (or another dotted name), the compile SDK lines that ask for that API are pointed at
+the dotted directory and the build is run once more. A platform already installed under the plain
+name is left as it is. The Android log says which files changed. All of that counts as the
+platform's build.
 
 #### What the harness changes in a demo app
 
@@ -321,6 +321,11 @@ the library published at its tag:
    to start. The iOS log says which one was used and why the first failed, and `checks/buildIos.json`
    records it (`"cocoapods": "demo app"`, `"machine"` or `"none"`). If both fail, the iOS build is
    recorded as failed.
+9. **Compile SDK name.** Only after an Android build fails because Gradle cannot find `android-N`
+   while the SDK has that platform under a dotted directory, such as `android-37.0`. Compile SDK
+   lines that ask for `N` are set to that directory name, in the demo app, the library's Android
+   project, and autolinked modules, and the build runs once more. An `ext` integer is left as a
+   number, because library build files compare it. The Android log lists the files.
 
 Nothing else in the demo app is touched.
 
