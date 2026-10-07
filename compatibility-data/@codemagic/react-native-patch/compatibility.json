@@ -4,11 +4,11 @@
   "results": {
     "0.5": {
       "0.86": {
-        "status": "incompatible",
+        "status": "compatible",
         "tested": { "library": "0.5.0", "reactNative": "0.86.3" },
-        "checks": { "buildIos": "failed", "buildAndroid": "passed", "tests": "none" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6abcf5cf083ff0a9a53ab076",
-        "testedAt": "2026-09-30T15:17:02Z"
+        "checks": { "buildIos": "passed", "buildAndroid": "passed", "tests": "none" },
+        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac65d16de4f6899ca0ce344",
+        "testedAt": "2026-10-07T15:25:11Z"
       },
       "0.87": {
         "status": "incompatible",
@@ -20,11 +20,11 @@
     },
     "0.4": {
       "0.86": {
-        "status": "incompatible",
+        "status": "compatible",
         "tested": { "library": "0.4.0", "reactNative": "0.86.3" },
-        "checks": { "buildIos": "failed", "buildAndroid": "passed", "tests": "none" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6abcf5cf083ff0a9a53ab077",
-        "testedAt": "2026-09-30T15:15:28Z"
+        "checks": { "buildIos": "passed", "buildAndroid": "passed", "tests": "none" },
+        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac65d17de4f6899ca0ce345",
+        "testedAt": "2026-10-07T15:35:58Z"
       },
       "0.87": {
         "status": "incompatible",
@@ -36,11 +36,11 @@
     },
     "0.3": {
       "0.86": {
-        "status": "incompatible",
+        "status": "compatible",
         "tested": { "library": "0.3.0", "reactNative": "0.86.3" },
-        "checks": { "buildIos": "failed", "buildAndroid": "passed", "tests": "none" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6abcf5cf083ff0a9a53ab078",
-        "testedAt": "2026-09-30T15:20:32Z"
+        "checks": { "buildIos": "passed", "buildAndroid": "passed", "tests": "none" },
+        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac67509de4f6899ca0ceb38",
+        "testedAt": "2026-10-07T17:25:11Z"
       },
       "0.87": {
         "status": "incompatible",
