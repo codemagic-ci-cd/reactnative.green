@@ -7,7 +7,8 @@
 // folders above the current one, through shims or shell hooks. So the machine's own setup is looked up
 // from the file system root, where no repository pin applies, and then called by its real path, so no
 // shim runs inside the repository:
-//   1. the default Ruby, if it has the CocoaPods gem: `<ruby> <pod script> install`;
+//   1. the default Ruby, if it has the CocoaPods gem: `<ruby> <pod script> install`, with
+//      COCOAPODS_NO_BUNDLER set so the gem's pod script does not look for a Gemfile inside the gem;
 //   2. otherwise the first `pod` on PATH that works from the root, such as Homebrew's standalone
 //      CocoaPods, which carries its own Ruby. A version manager's shim fails that test when the
 //      default Ruby has no CocoaPods.
@@ -45,10 +46,23 @@ const pointsAtBundler = (name) => name.startsWith('BUNDLE_') || name === 'RUBYOP
  * variables are set to undefined, which leaves them out of the child's environment.
  */
 export function fallbackEnv(env, rubyPath, base = process.env) {
-  const next = { ...env };
+  // The gem's bin/pod sets BUNDLE_GEMFILE to a Gemfile inside the gem and requires bundler/setup,
+  // unless this is set. The installed gem has no such Gemfile, so the fallback would not start.
+  const next = { ...env, COCOAPODS_NO_BUNDLER: '1' };
   for (const name of [...Object.keys(base), ...Object.keys(env)]) if (pointsAtBundler(name)) next[name] = undefined;
   if (rubyPath) next.PATH = [dirname(rubyPath), env.PATH ?? base.PATH ?? ''].join(delimiter);
   return next;
+}
+
+/**
+ * `Podfile.lock` and `Pods` pin the React Native pods from the demo app's own version. After a swap
+ * to another version, `pod install` refuses the new podspecs until both are gone. A same-version
+ * check leaves them, because they already match.
+ * @param {string} swapCase  "same", "patch" or "line"
+ * @returns {string[]} paths relative to the demo app's ios directory
+ */
+export function stalePodPaths(swapCase) {
+  return swapCase === 'same' ? [] : ['Podfile.lock', 'Pods'];
 }
 
 /** Every `pod` executable on PATH, in PATH order. */
