@@ -11,7 +11,7 @@
 // CocoaPods setup fails, `pod install` is tried once more with the machine's own (podInstall).
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
-import { failureLine, findMachinePod } from './lib/cocoapods.mjs';
+import { failureLine, findMachinePod, stalePodPaths } from './lib/cocoapods.mjs';
 import { outDir, readJson, workDir, writeJson } from './lib/config.mjs';
 import { gradleVersionOf, planGradleWrapper, withDistributionUrl, WRAPPER_PROPERTIES } from './lib/gradle.mjs';
 import { commands, packageManager, readInputs, repoPath, toolEnv } from './lib/library.mjs';
@@ -164,6 +164,17 @@ async function ios() {
   if (swap.demoKind === 'bare' && existsSync(machineEnv)) {
     rmSync(machineEnv);
     note("Removed the committed ios/.xcode.env.local (it is specific to its author's machine).");
+  }
+
+  // The lock and Pods/ still describe the demo app's own React Native. pod install will not move
+  // them, so a swapped version never gets past CocoaPods.
+  const stale = stalePodPaths(swap.swapCase).filter((name) => existsSync(join(iosDir, name)));
+  for (const name of stale) rmSync(join(iosDir, name), { recursive: true, force: true });
+  if (stale.length > 0) {
+    note(
+      `Removed ${stale.map((name) => `ios/${name}`).join(' and ')} so pod install resolves React Native ${swap.target}` +
+        ` (the demo app had ${swap.fromReactNative ?? 'another version'}).`,
+    );
   }
 
   const installed = await podInstall(iosDir);

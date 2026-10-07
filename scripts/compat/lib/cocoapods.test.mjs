@@ -2,7 +2,7 @@ import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { failureLine, fallbackEnv, findMachinePod, NEUTRAL_DIR, parseProbe, podsOnPath } from './cocoapods.mjs';
+import { failureLine, fallbackEnv, findMachinePod, NEUTRAL_DIR, parseProbe, podsOnPath, stalePodPaths } from './cocoapods.mjs';
 
 describe('parseProbe', () => {
   it('reads the real interpreter and the CocoaPods script', () => {
@@ -23,11 +23,29 @@ describe('parseProbe', () => {
 describe('fallbackEnv', () => {
   it('leaves out everything that points at the Gemfile or Bundler, from both environments', () => {
     const next = fallbackEnv({ PATH: '/a', BUNDLE_GEMFILE: '/x/Gemfile', CI: '1' }, undefined, { BUNDLE_PATH: 'vendor', RUBYOPT: '-rbundler/setup', HOME: '/h' });
-    expect(next).toEqual({ PATH: '/a', CI: '1', BUNDLE_GEMFILE: undefined, BUNDLE_PATH: undefined, RUBYOPT: undefined });
+    expect(next).toEqual({
+      PATH: '/a',
+      CI: '1',
+      COCOAPODS_NO_BUNDLER: '1',
+      BUNDLE_GEMFILE: undefined,
+      BUNDLE_PATH: undefined,
+      RUBYOPT: undefined,
+    });
   });
 
   it("puts the default Ruby's folder first, so no shim answers for ruby", () => {
     expect(fallbackEnv({ PATH: '/shims:/usr/bin' }, '/opt/ruby/bin/ruby', {}).PATH).toBe('/opt/ruby/bin:/shims:/usr/bin');
+  });
+});
+
+describe('stalePodPaths', () => {
+  it('leaves the lock in place when the demo app already uses the React Native version under test', () => {
+    expect(stalePodPaths('same')).toEqual([]);
+  });
+
+  it('drops the lock and Pods when the React Native version changed', () => {
+    expect(stalePodPaths('patch')).toEqual(['Podfile.lock', 'Pods']);
+    expect(stalePodPaths('line')).toEqual(['Podfile.lock', 'Pods']);
   });
 });
 
