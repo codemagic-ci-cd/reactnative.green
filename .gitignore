@@ -9,3 +9,6 @@ dist/
 
 # Local runs of the compatibility scripts
 compat-results/
+
+# Local notes, not part of the site
+local/
