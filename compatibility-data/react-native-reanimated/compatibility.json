@@ -13,9 +13,9 @@
       "0.87": {
         "status": "incompatible",
         "tested": { "library": "4.7.0", "reactNative": "0.87.1" },
-        "checks": { "buildIos": "failed", "buildAndroid": "passed", "tests": "failed" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6abcf5c2083ff0a9a53ab031",
-        "testedAt": "2026-09-30T12:19:36Z"
+        "checks": { "buildIos": "passed", "buildAndroid": "passed", "tests": "failed" },
+        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac67509de4f6899ca0ceb39",
+        "testedAt": "2026-10-07T17:17:22Z"
       }
     },
     "4.6": {
@@ -27,20 +27,20 @@
         "testedAt": "2026-09-30T14:27:03Z"
       },
       "0.87": {
-        "status": "incompatible",
+        "status": "compatible",
         "tested": { "library": "4.6.0", "reactNative": "0.87.1" },
-        "checks": { "buildIos": "failed", "buildAndroid": "passed", "tests": "passed" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6abcf5c2083ff0a9a53ab032",
-        "testedAt": "2026-09-30T12:19:06Z"
+        "checks": { "buildIos": "passed", "buildAndroid": "passed", "tests": "passed" },
+        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac67509de4f6899ca0ceb3a",
+        "testedAt": "2026-10-07T17:44:45Z"
       }
     },
     "4.5": {
       "0.86": {
-        "status": "incompatible",
+        "status": "compatible",
         "tested": { "library": "4.5.5", "reactNative": "0.86.3" },
-        "checks": { "buildIos": "failed", "buildAndroid": "passed", "tests": "passed" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6abcf5cd083ff0a9a53ab06b",
-        "testedAt": "2026-09-30T14:35:59Z"
+        "checks": { "buildIos": "passed", "buildAndroid": "passed", "tests": "passed" },
+        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac6750ade4f6899ca0ceb3b",
+        "testedAt": "2026-10-07T17:44:37Z"
       },
       "0.87": {
         "status": "incompatible",
