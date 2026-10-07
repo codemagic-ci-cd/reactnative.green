@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { distributionUrlOf, gradleVersionOf, planGradleWrapper, withDistributionUrl } from './gradle.mjs';
+import { distributionUrlOf, gradleVersionOf, missingAndroidApi, planGradleWrapper, platformAlias, withDistributionUrl } from './gradle.mjs';
 
 // The committed wrapper of react-native-screenshot-aware 1.3.21's demo app, and the template's for 0.84.
 const committed = [
@@ -33,5 +33,23 @@ describe('Gradle wrapper', () => {
   it('names versions for the log', () => {
     expect(gradleVersionOf(template84)).toBe('9.0.0');
     expect(gradleVersionOf('https\\://services.gradle.org/distributions/gradle-8.12-all.zip')).toBe('8.12');
+  });
+});
+
+describe('Android SDK platform alias', () => {
+  const failure = "Failed to find target with hash string 'android-37' in: /usr/local/share/android-sdk";
+
+  it('reads the missing API level, and the last one when the log was appended', () => {
+    expect(missingAndroidApi(failure)).toBe('37');
+    expect(missingAndroidApi(`${failure}\nFailed to find target with hash string 'android-36'`)).toBe('36');
+    expect(missingAndroidApi('BUILD FAILED')).toBeNull();
+  });
+
+  it('links the dotted platform only when the plain name is missing, preferring .0', () => {
+    expect(platformAlias('37', ['android-37.0', 'android-37.1'])).toBe('android-37.0');
+    expect(platformAlias('36', ['android-36.1'])).toBe('android-36.1');
+    expect(platformAlias('36', ['android-36', 'android-36.1'])).toBeNull();
+    expect(platformAlias('37', ['android-36.1'])).toBeNull();
+    expect(platformAlias('37', [])).toBeNull();
   });
 });

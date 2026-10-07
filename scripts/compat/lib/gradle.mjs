@@ -30,3 +30,29 @@ export function planGradleWrapper(currentProperties, templateUrl) {
   if (!from || !templateUrl || from === templateUrl) return null;
   return { from, to: templateUrl };
 }
+
+/**
+ * The API level from Gradle's "Failed to find target with hash string 'android-37'", or null.
+ * The last match wins: a retried build appends to the same log.
+ */
+export function missingAndroidApi(log) {
+  const matches = [...(log ?? '').matchAll(/Failed to find target with hash string 'android-(\d+)'/g)];
+  return matches.at(-1)?.[1] ?? null;
+}
+
+/**
+ * The installed platform directory that should stand in for `android-${api}`, or null when the
+ * plain name is already there or no dotted platform (`android-37.0`) is. `android-N.0` wins when
+ * several minors are installed. Names are the entries of `$ANDROID_SDK_ROOT/platforms`.
+ * @param {string} api
+ * @param {string[]} names
+ * @returns {string | null}
+ */
+export function platformAlias(api, names) {
+  if (!/^\d+$/.test(api ?? '')) return null;
+  const plain = `android-${api}`;
+  if (names.includes(plain)) return null;
+  const dotted = names.filter((name) => name.startsWith(`${plain}.`) && /^\d+$/.test(name.slice(plain.length + 1)));
+  if (dotted.includes(`${plain}.0`)) return `${plain}.0`;
+  return dotted.sort((a, b) => Number(a.slice(plain.length + 1)) - Number(b.slice(plain.length + 1))).at(-1) ?? null;
+}

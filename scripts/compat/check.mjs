@@ -9,11 +9,13 @@
 // as the library's failure: the Gradle wrapper's download of Gradle, Gradle's dependency downloads
 // (through its own retry settings), `pod install` and `expo prebuild`. When the demo app's own
 // CocoaPods setup fails, `pod install` is tried once more with the machine's own (podInstall).
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+// When Gradle cannot see an Android platform that was installed under a dotted name (android-37.0
+// for the hash android-37), that name is linked and the Android build is run once more.
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
 import { failureLine, findMachinePod, stalePodPaths } from './lib/cocoapods.mjs';
 import { outDir, readJson, workDir, writeJson } from './lib/config.mjs';
-import { gradleVersionOf, planGradleWrapper, withDistributionUrl, WRAPPER_PROPERTIES } from './lib/gradle.mjs';
+import { gradleVersionOf, missingAndroidApi, planGradleWrapper, platformAlias, withDistributionUrl, WRAPPER_PROPERTIES } from './lib/gradle.mjs';
 import { commands, packageManager, readInputs, repoPath, toolEnv } from './lib/library.mjs';
 import { capture, fail, run } from './lib/proc.mjs';
 
@@ -27,6 +29,8 @@ const GRADLE_NETWORK = [
   '-Dorg.gradle.internal.http.connectionTimeout=60000',
   '-Dorg.gradle.internal.http.socketTimeout=120000',
 ];
+// One architecture keeps the build short; arm64-v8a matches the Apple silicon build machines.
+const ASSEMBLE_DEBUG = ['assembleDebug', '-PreactNativeArchitectures=arm64-v8a', '--no-daemon', '--console=plain', ...GRADLE_NETWORK];
 
 const which = process.argv[2];
 if (!Object.hasOwn(CHECKS, which)) fail(`usage: check.mjs ${Object.keys(CHECKS).join('|')}`);
@@ -101,14 +105,44 @@ async function android() {
     ['./gradlew', ['--version', '--no-daemon', '--console=plain'], { cwd: androidDir }],
   ]);
   if (bootstrapped !== 0) return bootstrapped;
-  // One architecture keeps the build short; arm64-v8a matches the Apple silicon build machines.
-  return steps([
-    [
-      './gradlew',
-      ['assembleDebug', '-PreactNativeArchitectures=arm64-v8a', '--no-daemon', '--console=plain', ...GRADLE_NETWORK],
-      { cwd: androidDir },
-    ],
-  ]);
+  const built = await assembleDebug(androidDir);
+  if (built === 0) return built;
+  // The platform is often downloaded during this build, so the link has to come after the failure.
+  const linked = linkAndroidPlatform(readFileSync(log, 'utf8'));
+  if (!linked) return built;
+  note(`Android SDK: linked platforms/android-${linked.api} to ${linked.target}, and building once more.`);
+  return assembleDebug(androidDir);
+}
+
+function assembleDebug(androidDir) {
+  return steps([['./gradlew', ASSEMBLE_DEBUG, { cwd: androidDir }]]);
+}
+
+/**
+ * Google installs a platform as `android-37.0` while Android Gradle plugin 8.12 looks up
+ * `android-37`. Link the plain name to the dotted directory when the lookup failed and the plain
+ * name is absent. Relative, so the link stays inside the SDK's platforms directory.
+ * @returns {{ api: string, target: string } | null}
+ */
+function linkAndroidPlatform(logText) {
+  const api = missingAndroidApi(logText);
+  const root = process.env.ANDROID_SDK_ROOT || process.env.ANDROID_HOME;
+  if (!api || !root) return null;
+  const platforms = join(root, 'platforms');
+  let names;
+  try {
+    names = readdirSync(platforms);
+  } catch {
+    return null;
+  }
+  const target = platformAlias(api, names);
+  if (!target) return null;
+  try {
+    symlinkSync(target, join(platforms, `android-${api}`));
+  } catch {
+    return null;
+  }
+  return { api, target };
 }
 
 /**

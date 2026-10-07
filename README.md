@@ -276,8 +276,12 @@ version. The build log (`swap.txt`) says which case applied and lists every chan
 
 Lockfiles are regenerated. Each check then runs the package's `setup.prepare` commands; each platform
 build runs `expo prebuild` for Expo demo apps, and iOS runs `pod install` and builds for the
-simulator without code signing, while Android builds one architecture in debug. All of that counts
-as the platform's build.
+simulator without code signing, while Android builds one architecture in debug. If that build
+fails because Gradle cannot find `android-37` and the SDK has installed the platform as
+`android-37.0` (or another dotted name), the plain name is linked to that directory and the build
+is run once more. A platform already installed under the plain name is left as it is. The link is
+in the machine's SDK, not in the demo app, and the Android log says when one was added. All of that
+counts as the platform's build.
 
 #### What the harness changes in a demo app
 
