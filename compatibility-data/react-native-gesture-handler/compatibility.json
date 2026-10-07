@@ -11,11 +11,11 @@
         "testedAt": "2026-09-30T14:48:48Z"
       },
       "0.87": {
-        "status": "incompatible",
+        "status": "compatible",
         "tested": { "library": "3.3.0", "reactNative": "0.87.1" },
-        "checks": { "buildIos": "failed", "buildAndroid": "passed", "tests": "passed" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6abcf5c4083ff0a9a53ab038",
-        "testedAt": "2026-09-30T12:26:50Z"
+        "checks": { "buildIos": "passed", "buildAndroid": "passed", "tests": "passed" },
+        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac63859de4f6899ca0cd564",
+        "testedAt": "2026-10-07T13:07:51Z"
       }
     },
     "3.2": {
@@ -27,20 +27,20 @@
         "testedAt": "2026-09-30T14:56:16Z"
       },
       "0.87": {
-        "status": "incompatible",
+        "status": "compatible",
         "tested": { "library": "3.2.1", "reactNative": "0.87.1" },
-        "checks": { "buildIos": "failed", "buildAndroid": "passed", "tests": "passed" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6abcf5c4083ff0a9a53ab039",
-        "testedAt": "2026-09-30T12:25:43Z"
+        "checks": { "buildIos": "passed", "buildAndroid": "passed", "tests": "passed" },
+        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac6750ade4f6899ca0ceb3e",
+        "testedAt": "2026-10-07T17:59:42Z"
       }
     },
     "3.1": {
       "0.86": {
-        "status": "incompatible",
+        "status": "compatible",
         "tested": { "library": "3.1.0", "reactNative": "0.86.3" },
-        "checks": { "buildIos": "failed", "buildAndroid": "passed", "tests": "passed" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6abcf5ce083ff0a9a53ab071",
-        "testedAt": "2026-09-30T15:00:54Z"
+        "checks": { "buildIos": "passed", "buildAndroid": "passed", "tests": "passed" },
+        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac6750ade4f6899ca0ceb3f",
+        "testedAt": "2026-10-07T17:58:56Z"
       }
     }
   }
