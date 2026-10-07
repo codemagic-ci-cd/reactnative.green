@@ -14,8 +14,8 @@
         "status": "incompatible",
         "tested": { "library": "10.10.2", "reactNative": "0.86.3" },
         "checks": { "buildIos": "failed", "buildAndroid": "failed", "tests": "failed" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6abcf5c6083ff0a9a53ab049",
-        "testedAt": "2026-09-30T12:31:47Z"
+        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac6385ade4f6899ca0cd567",
+        "testedAt": "2026-10-07T14:12:40Z"
       },
       "0.87": {
         "status": "incompatible",
