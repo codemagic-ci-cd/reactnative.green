@@ -4,25 +4,25 @@
   "results": {
     "7.3": {
       "0.85": {
-        "status": "incompatible",
+        "status": "compatible",
         "tested": { "library": "7.3.3", "reactNative": "0.85.3" },
-        "checks": { "buildIos": "failed", "buildAndroid": "passed", "tests": "none" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6abcf5d4083ff0a9a53ab08f",
-        "testedAt": "2026-09-30T16:39:58Z"
+        "checks": { "buildIos": "passed", "buildAndroid": "passed", "tests": "none" },
+        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac63809de4f6899ca0cd541",
+        "testedAt": "2026-10-07T12:47:08Z"
       },
       "0.86": {
-        "status": "incompatible",
+        "status": "compatible",
         "tested": { "library": "7.3.3", "reactNative": "0.86.3" },
-        "checks": { "buildIos": "failed", "buildAndroid": "passed", "tests": "none" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6abcf5ca083ff0a9a53ab060",
-        "testedAt": "2026-09-30T13:45:00Z"
+        "checks": { "buildIos": "passed", "buildAndroid": "passed", "tests": "none" },
+        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac6750ade4f6899ca0ceb41",
+        "testedAt": "2026-10-07T18:25:13Z"
       },
       "0.87": {
         "status": "incompatible",
         "tested": { "library": "7.3.3", "reactNative": "0.87.1" },
-        "checks": { "buildIos": "failed", "buildAndroid": "failed", "tests": "none" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6abcf5c0083ff0a9a53ab028",
-        "testedAt": "2026-09-30T11:58:47Z"
+        "checks": { "buildIos": "passed", "buildAndroid": "failed", "tests": "none" },
+        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac6750ade4f6899ca0ceb40",
+        "testedAt": "2026-10-07T17:56:34Z"
       }
     }
   }
