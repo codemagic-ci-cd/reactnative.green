@@ -64,8 +64,9 @@ const templateBuildGradle = `buildscript {
 }
 `;
 
+const template = { buildToolsVersion: '36.0.0', compileSdkVersion: '36', targetSdkVersion: '36', kotlinVersion: '2.1.20' };
+
 describe('Android SDK versions', () => {
-  const template = { buildToolsVersion: '36.0.0', compileSdkVersion: '36', targetSdkVersion: '36' };
 
   it('reads literal values without quotes and skips expressions', () => {
     expect(sdkVersionsOf(templateBuildGradle)).toEqual(template);
@@ -90,6 +91,43 @@ describe('Android SDK versions', () => {
     expect(next).toBe(demoBuildGradle.replace('compileSdkVersion = 37', 'compileSdkVersion = 36').replace('"37.0.0"', '"36.0.0"'));
     expect(withSdkVersions("buildToolsVersion = '37.0.0'\n", { buildToolsVersion: '36.0.0' })).toBe("buildToolsVersion = '36.0.0'\n");
     expect(withSdkVersions(demoBuildGradle, { minSdkVersion: '24', ndkVersion: '1' })).toBe(demoBuildGradle);
-    expect(sdkVersionsOf(next)).toEqual(template);
+    expect(sdkVersionsOf(next)).toEqual({ ...template, kotlinVersion: '2.3.21' });
+  });
+});
+
+// The buildscript ext block of react-native-bootsplash 7.3.3's example (written for 0.86), and the
+// template's for 0.87.1, whose React Native Gradle plugin applies Kotlin 2.2.0 itself.
+const bootsplashBuildGradle = `buildscript {
+    ext {
+        buildToolsVersion = "36.0.0"
+        minSdkVersion = 24
+        compileSdkVersion = 36
+        targetSdkVersion = 36
+        ndkVersion = "27.1.12297006"
+        kotlinVersion = "2.1.20"
+    }
+}
+`;
+
+describe('Kotlin version', () => {
+  const template87 = { buildToolsVersion: '36.0.0', compileSdkVersion: '36', targetSdkVersion: '36', kotlinVersion: '2.2.0' };
+
+  it('raises an older kotlinVersion to the template value', () => {
+    expect(planSdkVersions(bootsplashBuildGradle, template87)).toEqual([{ name: 'kotlinVersion', from: '2.1.20', to: '2.2.0' }]);
+    const next = withSdkVersions(bootsplashBuildGradle, { kotlinVersion: '2.2.0' });
+    expect(next).toBe(bootsplashBuildGradle.replace('"2.1.20"', '"2.2.0"'));
+    expect(planSdkVersions(next, template87)).toEqual([]);
+  });
+
+  it('never lowers a newer kotlinVersion', () => {
+    // screens 4.28.0's demo app pins 2.3.21 and builds on 0.86, whose template has 2.1.20.
+    expect(planSdkVersions(demoBuildGradle, template).map((c) => c.name)).not.toContain('kotlinVersion');
+    expect(planSdkVersions(bootsplashBuildGradle, { kotlinVersion: '2.1.20' })).toEqual([]);
+  });
+
+  it('leaves a kotlinVersion alone when either value is not a version', () => {
+    expect(planSdkVersions(bootsplashBuildGradle, { kotlinVersion: 'latest' })).toEqual([]);
+    expect(planSdkVersions('kotlinVersion = "2.1"\n', { kotlinVersion: '2.2.0' })).toEqual([]);
+    expect(planSdkVersions('kotlinVersion = project.kotlin\n', { kotlinVersion: '2.2.0' })).toEqual([]);
   });
 });
