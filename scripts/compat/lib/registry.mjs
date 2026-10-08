@@ -1,7 +1,16 @@
 // npm registry access for the compatibility scripts. Everything that touches the network is here, so
 // the logic in swap.mjs and watch.mjs stays pure and testable with fixtures.
 import { gunzipSync } from 'node:zlib';
-import { agpOptOutsOf, distributionUrlOf, sdkVersionsOf, TEMPLATE_BUILD_GRADLE, TEMPLATE_GRADLE_PROPERTIES, TEMPLATE_WRAPPER_PROPERTIES } from './gradle.mjs';
+import {
+  agpOptOutsOf,
+  defaultProguardFileOf,
+  distributionUrlOf,
+  sdkVersionsOf,
+  TEMPLATE_APP_BUILD_GRADLE,
+  TEMPLATE_BUILD_GRADLE,
+  TEMPLATE_GRADLE_PROPERTIES,
+  TEMPLATE_WRAPPER_PROPERTIES,
+} from './gradle.mjs';
 import { lineOf } from './semver.mjs';
 import { pickLineVersion } from './swap.mjs';
 import { readTarFile } from './tar.mjs';
@@ -83,14 +92,15 @@ export async function gatherSwapRegistry({ manifests, demoKind, target }) {
   const reactNative = await fetchPackument('react-native');
   if (!reactNative.manifests[target]) throw new Error(`react-native ${target} is not published`);
 
-  // The template's package.json, its Gradle wrapper settings, its Android SDK versions and its Android
-  // Gradle plugin opt-outs, from one download.
+  // The template's package.json, its Gradle wrapper settings, its Android SDK versions, its Android
+  // Gradle plugin opt-outs and its default ProGuard file, from one download.
   const templatePackument = await fetchPackument('@react-native-community/template');
   const templateVersion = pickLineVersion(target, templatePackument.versions);
   let template = null;
   let gradleDistributionUrl = null;
   let sdkVersions = null;
   let agpOptOuts = null;
+  let proguardFile = null;
   if (templateVersion) {
     const { tarball, archive } = await fetchArchive(templatePackument, templateVersion);
     const manifest = readTarFile(archive, 'package/template/package.json');
@@ -101,6 +111,7 @@ export async function gatherSwapRegistry({ manifests, demoKind, target }) {
     sdkVersions = buildGradle ? sdkVersionsOf(buildGradle) : null;
     const gradleProperties = readTarFile(archive, TEMPLATE_GRADLE_PROPERTIES)?.toString('utf8');
     agpOptOuts = gradleProperties ? agpOptOutsOf(gradleProperties) : null;
+    proguardFile = defaultProguardFileOf(readTarFile(archive, TEMPLATE_APP_BUILD_GRADLE)?.toString('utf8'));
   }
 
   return {
@@ -110,6 +121,7 @@ export async function gatherSwapRegistry({ manifests, demoKind, target }) {
     gradleDistributionUrl,
     sdkVersions,
     agpOptOuts,
+    proguardFile,
     reactNativePeers: reactNative.manifests[target].peerDependencies ?? {},
     expoSdks: demoKind === 'expo' ? await fetchExpoSdks() : [],
   };

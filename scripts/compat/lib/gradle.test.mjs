@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
   agpOptOutsOf,
+  defaultProguardFileOf,
   distributionUrlOf,
   gradleVersionOf,
   planAgpOptOuts,
   planGradleWrapper,
+  planProguardFile,
   planSdkVersions,
   sdkVersionsOf,
   withAgpOptOuts,
   withDistributionUrl,
+  withProguardFile,
   withSdkVersions,
 } from './gradle.mjs';
 
@@ -180,5 +183,42 @@ describe('Android Gradle plugin opt-outs', () => {
     expect(withAgpOptOuts(`${demoProperties}\n`, { 'android.newDsl': 'false' })).toBe(`${demoProperties}\nandroid.newDsl=false\n`);
     expect(withAgpOptOuts('', template87OptOuts)).toBe('android.builtInKotlin=false\nandroid.newDsl=false\n');
     expect(withAgpOptOuts(demoProperties, { hermesEnabled: 'false' })).toBe(demoProperties);
+  });
+});
+
+// The release build type of react-native-screens 4.26.2's FabricExample app/build.gradle (written for
+// 0.86), which names the legacy file and then its own extra rules.
+const demoAppBuildGradle = `    buildTypes {
+        release {
+            signingConfig signingConfigs.debug
+            minifyEnabled enableProguardInReleaseBuilds
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            proguardFile "${'$'}{rootProject.projectDir}/../node_modules/detox/android/detox/proguard-rules-app.pro"
+        }
+    }
+`;
+
+describe('default ProGuard file', () => {
+  it('reads the file an app build.gradle names', () => {
+    expect(defaultProguardFileOf(demoAppBuildGradle)).toBe('proguard-android.txt');
+    expect(defaultProguardFileOf("proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')")).toBe('proguard-android-optimize.txt');
+    expect(defaultProguardFileOf('android {}')).toBeNull();
+    expect(defaultProguardFileOf(undefined)).toBeNull();
+  });
+
+  it('changes the legacy file to the optimize one when the template names it, and never back', () => {
+    expect(planProguardFile(demoAppBuildGradle, 'proguard-android-optimize.txt')).toEqual({ from: 'proguard-android.txt', to: 'proguard-android-optimize.txt' });
+    // The 0.86 template names the legacy file: a demo app written for 0.87 keeps the optimize one.
+    expect(planProguardFile(withProguardFile(demoAppBuildGradle, 'proguard-android-optimize.txt'), 'proguard-android.txt')).toBeNull();
+    expect(planProguardFile(demoAppBuildGradle, 'proguard-android.txt')).toBeNull();
+    expect(planProguardFile(demoAppBuildGradle, null)).toBeNull();
+    expect(planProguardFile('android {}', 'proguard-android-optimize.txt')).toBeNull();
+  });
+
+  it('rewrites only the legacy reference, keeping the quotes and every other line', () => {
+    const next = withProguardFile(demoAppBuildGradle, 'proguard-android-optimize.txt');
+    expect(next).toBe(demoAppBuildGradle.replace('"proguard-android.txt"', '"proguard-android-optimize.txt"'));
+    expect(withProguardFile("getDefaultProguardFile('proguard-android.txt')", 'proguard-android-optimize.txt')).toBe("getDefaultProguardFile('proguard-android-optimize.txt')");
+    expect(withProguardFile(next, 'proguard-android-optimize.txt')).toBe(next);
   });
 });
