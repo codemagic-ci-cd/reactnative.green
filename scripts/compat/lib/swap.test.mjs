@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import tags from '../fixtures/library-manifests.json' with { type: 'json' };
 import registryFixture from '../fixtures/registry.json' with { type: 'json' };
 import { lineOf } from './semver.mjs';
-import { chooseExpoSdk, chooseJestPreset, formatSwap, isRegistrySpec, localSpec, pickLineVersion, planSwap, swapCase } from './swap.mjs';
+import { chooseExpoSdk, chooseJestPreset, formatSwap, isRegistrySpec, localSpec, pickLineVersion, planSwap, swapCase, workspacePackageDirs } from './swap.mjs';
 
 // Registry data captured from npm on 2026-09-29 (see fixtures/registry.json), shaped as
 // gatherSwapRegistry returns it for one target.
@@ -162,6 +162,30 @@ describe('jest preset', () => {
     expect(swap('v2.1.3', '0.88.0-rc.3').root.devDependencies['@react-native/jest-preset']).toBe('0.88.0-rc.3');
   });
 
+  it('moves the dependency across lines when the preset is set in jest.config.js, not package.json', () => {
+    // react-native-gesture-handler 3.2.1 and react-native-reanimated 4.6.0 pin @react-native/jest-preset
+    // 0.87.0 and name the preset in jest.config.js; on 0.86.3 the 0.87 preset mocks a module 0.86 lacks.
+    const root = structuredClone(tags['v2.1.3'].root);
+    delete root.jest;
+    const plan = planSwap({
+      manifests: [
+        { file: 'package.json', manifest: root },
+        { file: 'example/package.json', manifest: tags['v2.1.3'].example },
+      ],
+      demoFile: 'example/package.json',
+      demoKind: 'expo',
+      target: '0.85.3',
+      registry: registryFor('0.85.3'),
+    });
+    const swapped = plan.manifests.find((m) => m.file === 'package.json').manifest;
+    const expected = pickLineVersion('0.85.3', registryFixture.versions['@react-native/jest-preset']);
+    expect(expected).toMatch(/^0\.85\./);
+    expect(swapped.devDependencies['@react-native/jest-preset']).toBe(expected);
+    expect(swapped).not.toHaveProperty('jest');
+    expect(plan.changes).toContainEqual({ file: 'package.json', name: '@react-native/jest-preset', from: '0.87.1', to: expected, reason: 'jest preset for this line' });
+    expect(plan.changes.filter((c) => c.name === '@react-native/jest-preset')).toHaveLength(1);
+  });
+
   it('chooses from the published versions only', () => {
     expect(chooseJestPreset('0.84.1', registryFixture.versions['@react-native/jest-preset']).preset).toBe('react-native');
     expect(chooseJestPreset('0.85.3', ['0.85.1', '0.85.2'])).toEqual({ preset: '@react-native/jest-preset', version: '0.85.2' });
@@ -278,3 +302,103 @@ describe('pointing the demo app at the checked-out package', () => {
   });
 });
 
+
+describe('react-dom and workspace packages', () => {
+  // react-native-reanimated 4.7.0 pins react, react-dom and react-test-renderer 19.3.0 in its package;
+  // moving react alone left react-dom behind and React DOM refused the pair. In react-navigation,
+  // packages/native pins react-dom with no react of its own.
+  function withReactDom(tag, target, extra) {
+    const root = structuredClone(tags[tag].root);
+    root.devDependencies = { ...root.devDependencies, ...extra };
+    const plan = planSwap({
+      manifests: [
+        { file: 'package.json', manifest: root },
+        { file: 'example/package.json', manifest: tags[tag].example },
+      ],
+      demoFile: 'example/package.json',
+      demoKind: KIND[tag],
+      target,
+      registry: registryFor(target),
+    });
+    return { plan, root: plan.manifests.find((m) => m.file === 'package.json').manifest };
+  }
+
+  it('sets react-dom to the version react gets from the template', () => {
+    const { plan, root } = withReactDom('v1.3.21', '0.87.1', { 'react-dom': '19.1.0' });
+    expect(root.devDependencies['react-dom']).toBe(root.devDependencies.react);
+    expect(plan.changes).toContainEqual({ file: 'package.json', name: 'react-dom', from: '19.1.0', to: root.devDependencies.react, reason: 'matches react' });
+  });
+
+  it('moves react-dom in a manifest that has no react of its own', () => {
+    const root = structuredClone(tags['v1.3.21'].root);
+    delete root.devDependencies.react;
+    root.devDependencies['react-dom'] = '19.1.0';
+    const plan = planSwap({
+      manifests: [{ file: 'package.json', manifest: root }, { file: 'example/package.json', manifest: tags['v1.3.21'].example }],
+      demoFile: 'example/package.json',
+      demoKind: 'bare',
+      target: '0.87.1',
+      registry: registryFor('0.87.1'),
+    });
+    const swapped = plan.manifests.find((m) => m.file === 'package.json').manifest;
+    expect(swapped.devDependencies['react-dom']).toBe(registryFor('0.87.1').template.dependencies.react);
+  });
+
+  it('leaves react-dom alone in the same-version and patch cases', () => {
+    expect(withReactDom('v2.1.3', '0.87.1', { 'react-dom': '19.1.0' }).root.devDependencies['react-dom']).toBe('19.1.0');
+  });
+
+  it('lists workspace package folders from exact names and one-level globs', () => {
+    const tree = { packages: ['core', 'native', 'bottom-tabs'], apps: ['fabric-example'], '': ['packages', 'apps', 'example'] };
+    const listDirs = (dir) => tree[dir] ?? [];
+    expect(workspacePackageDirs(['packages/*', 'example', './apps/*', '!packages/core', 'tools/**'], listDirs)).toEqual([
+      'apps/fabric-example',
+      'example',
+      'packages/bottom-tabs',
+      'packages/core',
+      'packages/native',
+    ]);
+    expect(workspacePackageDirs({ packages: ['packages/*'] }, listDirs)).toEqual(['packages/bottom-tabs', 'packages/core', 'packages/native']);
+    expect(workspacePackageDirs(undefined, listDirs)).toEqual([]);
+  });
+});
+
+describe('react-native-worklets for reanimated 4', () => {
+  // @react-navigation/drawer 7.12.8 and react-native-tab-view 4.1.3 pin react-native-reanimated ^3.19.4;
+  // the Expo rule moved it to 4.5.1 and the tests failed with "Cannot find module 'react-native-worklets'".
+  const sdk57 = { sdk: 57, version: '57.0.0', reactNativeLine: '0.87', bundled: { 'react-native-reanimated': '4.5.1', 'react-native-worklets': '0.10.1' } };
+  function plan(exampleDeps, sdks = [sdk57]) {
+    const example = structuredClone(tags['v2.0.0'].example);
+    example.dependencies = { ...example.dependencies, ...exampleDeps };
+    const result = planSwap({
+      manifests: [{ file: 'package.json', manifest: tags['v2.0.0'].root }, { file: 'example/package.json', manifest: example }],
+      demoFile: 'example/package.json',
+      demoKind: 'expo',
+      target: '0.87.1',
+      registry: registryFor('0.87.1', { expoSdks: sdks }),
+    });
+    return { changes: result.changes, example: result.manifests.find((m) => m.file === 'example/package.json').manifest };
+  }
+
+  it('adds the bundled worklets next to a reanimated the SDK moved to 4', () => {
+    const { changes, example } = plan({ 'react-native-reanimated': '^3.19.4' });
+    expect(example.dependencies['react-native-reanimated']).toBe('4.5.1');
+    expect(example.dependencies['react-native-worklets']).toBe('0.10.1');
+    expect(changes).toContainEqual({ file: 'example/package.json', name: 'react-native-worklets', from: null, to: '0.10.1', reason: 'react-native-reanimated 4 needs it; bundled with Expo SDK 57' });
+  });
+
+  it('moves worklets that are already there instead of adding a second entry', () => {
+    const { changes, example } = plan({ 'react-native-reanimated': '4.3.1', 'react-native-worklets': '0.8.3' });
+    expect(example.dependencies['react-native-worklets']).toBe('0.10.1');
+    expect(changes.filter((c) => c.name === 'react-native-worklets')).toHaveLength(1);
+    expect(changes.find((c) => c.name === 'react-native-worklets').from).toBe('0.8.3');
+  });
+
+  it('adds nothing when reanimated stays on 3, has no SDK version, or is absent', () => {
+    const sdk3 = { ...sdk57, bundled: { 'react-native-reanimated': '3.19.4', 'react-native-worklets': '0.10.1' } };
+    expect(plan({ 'react-native-reanimated': '^3.19.4' }, [sdk3]).example.dependencies).not.toHaveProperty('react-native-worklets');
+    const noWorklets = { ...sdk57, bundled: { 'react-native-reanimated': '4.5.1' } };
+    expect(plan({ 'react-native-reanimated': '^3.19.4' }, [noWorklets]).example.dependencies).not.toHaveProperty('react-native-worklets');
+    expect(plan({}).example.dependencies).not.toHaveProperty('react-native-worklets');
+  });
+});

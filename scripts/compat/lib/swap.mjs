@@ -23,6 +23,8 @@ import { isReleaseCandidate, isStable, lineOf, newestOnLine, parseVersion } from
 
 const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies'];
 const JEST_PRESET_PACKAGE = '@react-native/jest-preset';
+const REANIMATED_PACKAGE = 'react-native-reanimated';
+const WORKLETS_PACKAGE = 'react-native-worklets';
 const TEMPLATE_PACKAGES = (name) =>
   name === 'react' || name === 'react-test-renderer' || name.startsWith('@react-native-community/cli');
 
@@ -52,6 +54,32 @@ export function chooseExpoSdk(targetLine, sdks) {
 export function chooseJestPreset(target, jestPresetVersions = []) {
   const version = pickLineVersion(target, jestPresetVersions);
   return version ? { preset: JEST_PRESET_PACKAGE, version } : { preset: 'react-native', version: null };
+}
+
+/**
+ * The package folders a root package.json's `workspaces` names, relative to the root: exact folders
+ * and one-level globs such as "packages/*". Negations and deeper globs are skipped. Every workspace
+ * package is swapped, not only the package under test and the demo app: a sibling left on another
+ * react or react-test-renderer installs a second copy of React, and its tests fail on null hooks.
+ * @param {string[] | { packages?: string[] } | undefined} workspaces
+ * @param {(dir: string) => string[]} listDirs subfolder names of a folder relative to the root
+ * @returns {string[]}
+ */
+export function workspacePackageDirs(workspaces, listDirs) {
+  const patterns = Array.isArray(workspaces) ? workspaces : (workspaces?.packages ?? []);
+  const dirs = [];
+  for (const pattern of patterns) {
+    if (typeof pattern !== 'string' || pattern.startsWith('!') || pattern.includes('**')) continue;
+    const clean = pattern.replace(/^\.\//, '').replace(/\/+$/, '');
+    if (!clean.endsWith('/*')) {
+      if (!clean.includes('*')) dirs.push(clean);
+      continue;
+    }
+    const parent = clean.slice(0, -2);
+    if (parent.includes('*')) continue;
+    for (const name of listDirs(parent)) dirs.push(parent ? `${parent}/${name}` : name);
+  }
+  return [...new Set(dirs)].sort();
 }
 
 /** "~57.0.18" -> "57.0.18"; ranges and protocols such as "*" or "workspace:*" -> null. */
@@ -135,7 +163,18 @@ export function planSwap({ manifests, demoFile, demoKind, target, registry, libr
       return version ? [version, 'pinned in step with react-native'] : null;
     }
 
-    if (name === JEST_PRESET_PACKAGE) return null; // handled with the jest configuration below
+    if (name === JEST_PRESET_PACKAGE) {
+      // The dependency moves with the line like any @react-native/* package: a preset for 0.87 mocks
+      // react-native/setup-env, which 0.86 does not have, and every suite fails to start. Adding or
+      // removing it, and switching `jest.preset`, is done with the jest configuration below, which
+      // only sees a preset set in package.json; a preset set in jest.config.js keeps its dependency.
+      return jest?.version ? [jest.version, 'jest preset for this line'] : null;
+    }
+    if (name === 'react-dom') {
+      // React DOM refuses a react of another version, so it takes whatever react is set to.
+      const react = decide('react', current, manifest);
+      return react ? [react[0], 'matches react'] : null;
+    }
     if (TEMPLATE_PACKAGES(name)) {
       if (registry.template) {
         return templateVersions[name]
@@ -172,7 +211,21 @@ export function planSwap({ manifests, demoFile, demoKind, target, registry, libr
       }
     }
 
-    // The jest preset is the one change allowed to add or remove a dependency, and only across lines.
+    // Two changes may add a dependency, both across lines only. First: react-native-reanimated 4
+    // needs react-native-worklets, which the Expo SDK that brings reanimated 4 bundles too, and a
+    // library written for reanimated 3 has no worklets dependency to move.
+    if (expo && !keepExpo) {
+      const field = DEPENDENCY_FIELDS.find((f) => next[f]?.[REANIMATED_PACKAGE]);
+      const reanimated = field ? parseVersion(exactPart(next[field][REANIMATED_PACKAGE]) ?? '') : null;
+      const worklets = expo.bundled[WORKLETS_PACKAGE];
+      const present = DEPENDENCY_FIELDS.some((f) => next[f]?.[WORKLETS_PACKAGE]);
+      if (reanimated && reanimated.major >= 4 && worklets && !present) {
+        next[field] = { ...next[field], [WORKLETS_PACKAGE]: worklets };
+        changes.push({ file, name: WORKLETS_PACKAGE, from: null, to: worklets, reason: `${REANIMATED_PACKAGE} ${reanimated.major} needs it; bundled with Expo SDK ${expo.sdk}` });
+      }
+    }
+
+    // Second: the jest preset, which may also be removed.
     if (jest && typeof next.jest?.preset === 'string') {
       if (next.jest.preset !== jest.preset) {
         changes.push({

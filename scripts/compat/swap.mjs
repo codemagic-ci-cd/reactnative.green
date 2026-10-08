@@ -2,7 +2,7 @@
 // test, changing as little as the target requires (rules in lib/swap.mjs and the README), and log
 // every change. The repository root, the package's own folder and the demo app are swapped together
 // so the workspace resolves one React Native version.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { outDir, readJson, writeJson } from './lib/config.mjs';
 import { BUILD_GRADLE, gradleVersionOf, planGradleWrapper, planSdkVersions, withDistributionUrl, withSdkVersions, WRAPPER_PROPERTIES } from './lib/gradle.mjs';
@@ -10,12 +10,24 @@ import { detectDemoKind, packageManager, readInputs, repoPath } from './lib/libr
 import { fail } from './lib/proc.mjs';
 import { gatherSwapRegistry } from './lib/registry.mjs';
 import { lineOf } from './lib/semver.mjs';
-import { formatSwap, localSpec, planSwap } from './lib/swap.mjs';
+import { formatSwap, localSpec, planSwap, workspacePackageDirs } from './lib/swap.mjs';
 
 const inputs = readInputs();
 const { packageDir, demoApp } = inputs.settings;
-const files = [...new Set(['package.json', `${packageDir}/package.json`.replace(/^\.\//, ''), `${demoApp}/package.json`])];
 const demoFile = `${demoApp}/package.json`;
+// The root, the package under test, the demo app, and every other workspace package: a sibling
+// package left on other react or react-test-renderer versions installs a second React (lib/swap.mjs).
+const rootManifest = existsSync(repoPath('package.json')) ? readJson(repoPath('package.json')) : {};
+const listDirs = (dir) => {
+  const path = dir ? repoPath(dir) : repoPath('.');
+  try {
+    return readdirSync(path).filter((name) => !name.startsWith('.') && statSync(join(path, name)).isDirectory());
+  } catch {
+    return [];
+  }
+};
+const workspaceFiles = workspacePackageDirs(rootManifest.workspaces, listDirs).map((dir) => `${dir}/package.json`);
+const files = [...new Set(['package.json', `${packageDir}/package.json`.replace(/^\.\//, ''), demoFile, ...workspaceFiles])];
 
 if (!existsSync(repoPath(demoFile))) fail(`The library has no demo app at ${demoFile} (demo.dir in green-packages.toml).`);
 const manifests = files.filter((file) => existsSync(repoPath(file))).map((file) => ({ file, manifest: readJson(repoPath(file)) }));

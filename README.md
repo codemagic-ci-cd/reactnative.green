@@ -252,8 +252,11 @@ be exact, and both must be on lines the catalog lists.
 
 The library's own demo app is what gets built, so a red cell can be caused by the demo app rather
 than the library. The swap changes as little as the target needs, in the repository's root
-`package.json`, the package's own and the demo app's, so the workspace resolves one React Native
-version. The build log (`swap.txt`) says which case applied and lists every change.
+`package.json`, the package's own, the demo app's and every other workspace package's (the folders
+the root's `workspaces` names, one-level globs included), so the workspace resolves one React Native
+version and one React. A sibling package left on another `react` or `react-test-renderer` installs a
+second copy of React, and the tests fail with null hooks. The build log (`swap.txt`) says which case
+applied and lists every change.
 
 - **Same version.** When the demo app already uses the version under test, no package version
   changes: the check runs the library's own setup (apart from the Gradle wrapper, below).
@@ -263,7 +266,8 @@ version. The build log (`swap.txt`) says which case applied and lists every chan
   - `react-native` becomes the version under test.
   - `react`, `react-test-renderer` and the `@react-native-community/cli` packages take the versions
     from the React Native app template for that line. A line without a template (a very new release
-    candidate) takes `react` from React Native's own peer range and leaves the others.
+    candidate) takes `react` from React Native's own peer range and leaves the others. `react-dom`
+    takes whatever `react` is set to: React DOM refuses a `react` of another version.
   - Every `@react-native/*` package takes the same version as React Native, or the newest release or
     release candidate on that line when that exact version was never published. Nightlies are never
     used.
@@ -272,7 +276,11 @@ version. The build log (`swap.txt`) says which case applied and lists every chan
   - Expo demo apps move to the Expo SDK whose React Native line is closest (the lower SDK on a tie),
     with every Expo-managed module at the version that SDK bundles, unless the demo app is already
     on that SDK, in which case its Expo versions are kept. Bare demo apps keep their Expo packages.
-  - Nothing else changes, and nothing is added apart from the jest preset.
+    When that moves `react-native-reanimated` to 4 (or the library already pins 4) and the manifest
+    has no `react-native-worklets`, the worklets package reanimated 4 needs is added at the version
+    the SDK bundles: a library written for reanimated 3 has no such dependency, and its tests fail
+    to load reanimated without it.
+  - Nothing else changes, and nothing is added apart from the jest preset and `react-native-worklets`.
 
 Lockfiles are regenerated. Each check then runs the package's `setup.prepare` commands; each platform
 build runs `expo prebuild` for Expo demo apps, and iOS runs `pod install` and builds for the
@@ -286,9 +294,14 @@ check failed, and the build's `swap.txt` lists every change below that was made.
 the library published at its tag:
 
 1. **Package versions**: React Native and what moves with it, by the three cases above.
-2. **Jest preset**: switched only across lines, when `@react-native/jest-preset` exists or stops
-   existing for the target line.
+2. **Jest preset**: across lines only. A `@react-native/jest-preset` dependency moves to the target
+   line's version like the other `@react-native/*` packages: a preset for 0.87 mocks
+   `react-native/setup-env`, which 0.86 does not have, so every suite fails to start. When
+   `package.json` sets `jest.preset`, the preset is also switched, and the dependency added or
+   removed, as `@react-native/jest-preset` exists or stops existing for the target line. A preset set
+   in `jest.config.js` keeps the dependency it names.
 3. **Expo SDK**: across lines only, and only when the closest SDK is not the one the demo app uses.
+   `react-native-worklets` is added where reanimated 4 needs it (above).
 4. **Gradle wrapper**: always set to the Gradle version of the React Native app template for the
    target line, because the React Native version dictates it and a demo app's committed wrapper can
    be too old even for its own React Native version. For Expo demo apps it is set right after
