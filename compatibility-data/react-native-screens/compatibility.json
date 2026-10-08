@@ -4,11 +4,11 @@
   "results": {
     "4.28": {
       "0.86": {
-        "status": "incompatible",
+        "status": "compatible",
         "tested": { "library": "4.28.0", "reactNative": "0.86.3" },
-        "checks": { "buildIos": "failed", "buildAndroid": "failed", "tests": "none" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6abcf5cc083ff0a9a53ab066",
-        "testedAt": "2026-09-30T14:09:32Z"
+        "checks": { "buildIos": "passed", "buildAndroid": "passed", "tests": "none" },
+        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac6f4a8de4f6899ca0d0cee",
+        "testedAt": "2026-10-08T01:55:32Z"
       },
       "0.87": {
         "status": "incompatible",
