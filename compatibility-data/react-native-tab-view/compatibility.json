@@ -13,11 +13,11 @@
     },
     "4.2": {
       "0.86": {
-        "status": "incompatible",
+        "status": "compatible",
         "tested": { "library": "4.2.2", "reactNative": "0.86.3" },
-        "checks": { "buildIos": "failed", "buildAndroid": "failed", "tests": "passed" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6abcf5cd083ff0a9a53ab06d",
-        "testedAt": "2026-09-30T14:38:29Z"
+        "checks": { "buildIos": "passed", "buildAndroid": "passed", "tests": "passed" },
+        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac73257de4f6899ca0d1808",
+        "testedAt": "2026-10-08T06:26:07Z"
       }
     },
     "4.1": {
