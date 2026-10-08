@@ -147,6 +147,13 @@ export function planSwap({ manifests, demoFile, demoKind, target, registry, libr
     const currentExpoMajor = parseVersion(exactPart(dependencyOf(demo, 'expo')) ?? '')?.major;
     keepExpo = expo !== null && currentExpoMajor === expo.sdk;
   }
+  // An Expo demo app can only be built with the SDK made for the target line. Expo skips lines
+  // (0.82, 0.84, 0.87), and an SDK for another line fails before the library is reached: its Gradle
+  // plugin and its reanimated refuse the React Native version. The swap then stops without a result.
+  const blocked =
+    expo && expo.reactNativeLine !== targetLine
+      ? `No Expo SDK bundles React Native ${targetLine}; the closest, SDK ${expo.sdk}, bundles ${expo.reactNativeLine}. The Expo demo app cannot be built on this line, so the check stops and records nothing.`
+      : null;
   const jest = kind === 'line' ? chooseJestPreset(target, registry.versions?.[JEST_PRESET_PACKAGE]) : null;
   const templateVersions = { ...registry.template?.devDependencies, ...registry.template?.dependencies };
 
@@ -270,6 +277,7 @@ export function planSwap({ manifests, demoFile, demoKind, target, registry, libr
     fromReactNative: demoReactNative ?? null,
     expoSdk: expo && !keepExpo ? expo.sdk : null,
     keptExpo: keepExpo,
+    blocked,
     jestPreset: jest?.preset ?? null,
     changes,
   };
@@ -287,6 +295,7 @@ export function formatSwap(plan, target) {
     `React Native ${target}; the demo app had ${plan.fromReactNative ?? 'no react-native dependency'}.`,
     `Case: ${plan.swapCase}, ${CASE_TEXT[plan.swapCase]}.`,
   ];
+  if (plan.blocked) lines.push(`Blocked: ${plan.blocked}`);
   if (plan.keptExpo) lines.push('Expo: the demo app is already on the chosen SDK, so its Expo versions were kept.');
   else if (plan.expoSdk) lines.push(`Expo: moved to SDK ${plan.expoSdk}.`);
   if (plan.jestPreset) lines.push(`Jest preset: ${plan.jestPreset}.`);

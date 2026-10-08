@@ -62,13 +62,6 @@
         "checks": { "buildIos": "passed", "buildAndroid": "passed", "tests": "passed" },
         "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac717ebde4f6899ca0d12e8",
         "testedAt": "2026-10-08T04:37:43Z"
-      },
-      "0.87": {
-        "status": "incompatible",
-        "tested": { "library": "7.17.2", "reactNative": "0.87.1" },
-        "checks": { "buildIos": "failed", "buildAndroid": "failed", "tests": "passed" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac71801de4f6899ca0d12eb",
-        "testedAt": "2026-10-08T04:32:49Z"
       }
     }
   }
