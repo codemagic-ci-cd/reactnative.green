@@ -273,9 +273,13 @@ applied and lists every change.
     used.
   - Tests use `@react-native/jest-preset` when it exists for the line, otherwise React Native's
     built-in `react-native` preset (only a `jest.preset` in `package.json` is adjusted).
-  - Expo demo apps move to the Expo SDK whose React Native line is closest (the lower SDK on a tie),
-    with every Expo-managed module at the version that SDK bundles, unless the demo app is already
-    on that SDK, in which case its Expo versions are kept. Bare demo apps keep their Expo packages.
+  - Expo demo apps move to the Expo SDK that bundles the target line, with every Expo-managed
+    module at the version that SDK bundles, unless the demo app is already on that SDK, in which
+    case its Expo versions are kept. Bare demo apps keep their Expo packages. When no SDK bundles
+    the line (Expo skips lines: 0.82, 0.84, 0.87), the swap stops as a setup failure and the cell
+    gets no result: an SDK made for another line fails before the library is reached, because its
+    Gradle plugin and its reanimated refuse the React Native version, and that would be recorded as
+    the library's incompatibility.
     When that moves `react-native-reanimated` to 4 (or the library already pins 4) and the manifest
     has no `react-native-worklets`, the worklets package reanimated 4 needs is added at the version
     the SDK bundles: a library written for reanimated 3 has no such dependency, and its tests fail
@@ -353,7 +357,8 @@ inside `xcodebuild` and inside a library's own scripts is not retried.
   `none` when the catalog says the library has no test suite (`test.run = "none"`). A failing check
   never stops the others, so the page can show which one failed.
 - If the setup fails (bad inputs, no such tag, the swap, the Node download, the install), the check
-  fails and leaves no result: the cell keeps its previous one.
+  fails and leaves no result: the cell keeps its previous one. An Expo demo app on a React Native
+  line that no Expo SDK bundles is such a failure, so those cells stay "not tested yet".
 - The pull request step takes the package and both versions from the build's inputs, checked again,
   and from `result.json` only the three outcomes, which must be exactly `passed` or `failed` (or
   `none` for tests, and only where the catalog says so). A small, strictly shaped file is required.

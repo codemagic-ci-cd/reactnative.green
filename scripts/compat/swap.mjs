@@ -49,6 +49,8 @@ const library = {
   spec: localSpec(packageManager(repoPath(demoApp)), posix.relative(demoApp, packageDir === '.' ? '' : packageDir) || '.'),
 };
 const plan = planSwap({ manifests, demoFile, demoKind, target, registry, library });
+// A setup failure: nothing is written and no result is recorded (README, "What is and is not recorded").
+if (plan.blocked) fail(plan.blocked);
 for (const { file, manifest } of plan.manifests) writeFileSync(repoPath(file), `${JSON.stringify(manifest, null, 2)}\n`);
 
 // The Gradle wrapper follows the React Native version in every case, even when no package version

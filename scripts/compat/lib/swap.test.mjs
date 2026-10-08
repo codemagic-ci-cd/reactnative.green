@@ -402,3 +402,22 @@ describe('react-native-worklets for reanimated 4', () => {
     expect(plan({}).example.dependencies).not.toHaveProperty('react-native-worklets');
   });
 });
+
+describe('Expo demo app on a line no SDK bundles', () => {
+  // Expo skips lines: SDK 57 bundles 0.86 and SDK 58 bundles 0.88, so an Expo demo app has no SDK for
+  // 0.87. SDK 57 on 0.87.1 failed before any library code: its Gradle plugin and reanimated refuse it.
+  it('is blocked, naming the closest SDK, and the summary says so', () => {
+    const plan = swap('v2.0.0', '0.87.1');
+    expect(plan.blocked).toMatch(/^No Expo SDK bundles React Native 0\.87; the closest, SDK 57, bundles 0\.86\./);
+    expect(formatSwap(plan, '0.87.1')).toContain('Blocked: No Expo SDK bundles React Native 0.87');
+  });
+
+  it('is not blocked when an SDK bundles the line, nor for a bare demo app', () => {
+    expect(swap('v2.0.0', '0.85.3').blocked).toBeNull();
+    expect(swap('v1.3.21', '0.87.1').blocked).toBeNull();
+  });
+
+  it('is not blocked in the same-version and patch cases, which choose no SDK', () => {
+    expect(swap('v2.1.3', '0.87.1').blocked).toBeNull();
+  });
+});
