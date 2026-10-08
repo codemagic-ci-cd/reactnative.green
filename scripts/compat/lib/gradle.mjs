@@ -3,7 +3,10 @@
 // build against, so both are set to what the React Native app template for the target line uses, in
 // every case: a demo app's committed values can be wrong even for its own React Native version, and
 // a demo app written for a newer line asks for an SDK the target line's plugin cannot find. The
-// Kotlin version is raised to the template's when the demo app's is older, and never lowered.
+// Kotlin version is raised to the template's when the demo app's is older, and never lowered. The
+// Android Gradle plugin opt-outs the template sets in gradle.properties are added when the demo app
+// does not set them: a plugin that behaves differently by default from one line to the next breaks a
+// demo app written for the previous line.
 
 import { compareVersions, isVersion } from './semver.mjs';
 
@@ -11,6 +14,8 @@ export const WRAPPER_PROPERTIES = 'android/gradle/wrapper/gradle-wrapper.propert
 export const TEMPLATE_WRAPPER_PROPERTIES = `package/template/${WRAPPER_PROPERTIES}`;
 export const BUILD_GRADLE = 'android/build.gradle';
 export const TEMPLATE_BUILD_GRADLE = `package/template/${BUILD_GRADLE}`;
+export const GRADLE_PROPERTIES = 'android/gradle.properties';
+export const TEMPLATE_GRADLE_PROPERTIES = `package/template/${GRADLE_PROPERTIES}`;
 
 /** The distributionUrl value as written in the file ("https\://services.gradle.org/..."), or null. */
 export function distributionUrlOf(properties) {
@@ -42,11 +47,9 @@ export function planGradleWrapper(currentProperties, templateUrl) {
 // ndkVersion is not what the plugin's SDK lookup fails on.
 export const SDK_VERSION_KEYS = ['compileSdkVersion', 'targetSdkVersion', 'buildToolsVersion'];
 
-// The Kotlin Gradle plugin the demo app applies. React Native's Gradle plugin brings its own Kotlin
-// plugin, and a demo app that pins an older one applies both: "Failed to apply plugin
-// 'org.jetbrains.kotlin.android'. Cannot add extension with name 'kotlin'". So the demo app's is
-// raised to the template's. It is never lowered: the library's own Kotlin code may need the newer one,
-// and a newer Kotlin plugin accepts the older React Native plugin.
+// The Kotlin Gradle plugin the demo app compiles with. It is raised to the template's so the demo app
+// compiles its Kotlin with the version the line's own Kotlin code was built with, and never lowered:
+// the library's own Kotlin code may need the newer one, and a newer plugin reads the older line fine.
 export const KOTLIN_VERSION_KEY = 'kotlinVersion';
 
 const VERSION_KEYS = [...SDK_VERSION_KEYS, KOTLIN_VERSION_KEY];
@@ -109,4 +112,53 @@ export function withSdkVersions(buildGradle, versions) {
     });
   }
   return text;
+}
+
+// Android Gradle plugin behaviour the template opts out of in gradle.properties. AGP 9, which React
+// Native 0.87 moved to, compiles Kotlin itself by default, and an app that applies the Kotlin plugin
+// as well, as every template up to then did, fails: "Failed to apply plugin
+// 'org.jetbrains.kotlin.android'. Cannot add extension with name 'kotlin'". The 0.87 template keeps
+// applying the plugin and sets `android.builtInKotlin=false` (and `android.newDsl=false`); a demo app
+// written for an earlier line has the plugin but not the opt-out. An opt-out the demo app sets, to
+// either value, is its own choice and is kept.
+export const AGP_OPT_OUT_KEYS = ['android.builtInKotlin', 'android.newDsl'];
+
+function propertyLine(key) {
+  return new RegExp(`^[ \\t]*${key.replace(/\./g, '\\.')}[ \\t]*=[ \\t]*(.*?)[ \\t]*$`, 'm');
+}
+
+/**
+ * The opt-outs a gradle.properties sets, by key. Keys the file does not set are absent.
+ * @returns {Record<string, string>}
+ */
+export function agpOptOutsOf(properties) {
+  const values = {};
+  for (const key of AGP_OPT_OUT_KEYS) {
+    const value = propertyLine(key).exec(properties ?? '')?.[1];
+    if (value !== undefined) values[key] = value;
+  }
+  return values;
+}
+
+/**
+ * The opt-outs to add: one per key the template sets and the demo app does not. Empty when there is
+ * nothing to add or no template values.
+ * @param {string} currentProperties
+ * @param {Record<string, string> | null | undefined} templateOptOuts as agpOptOutsOf returns them
+ * @returns {{ name: string, to: string }[]}
+ */
+export function planAgpOptOuts(currentProperties, templateOptOuts) {
+  const current = agpOptOutsOf(currentProperties);
+  return AGP_OPT_OUT_KEYS.filter((key) => templateOptOuts?.[key] != null && !(key in current)).map((key) => ({ name: key, to: templateOptOuts[key] }));
+}
+
+/** The same gradle.properties with those keys appended, one per line; every existing line is kept. */
+export function withAgpOptOuts(properties, optOuts) {
+  const lines = Object.entries(optOuts)
+    .filter(([key]) => AGP_OPT_OUT_KEYS.includes(key))
+    .map(([key, value]) => `${key}=${value}`);
+  if (lines.length === 0) return properties ?? '';
+  const text = properties ?? '';
+  const separator = text === '' || text.endsWith('\n') ? '' : '\n';
+  return `${text}${separator}${lines.join('\n')}\n`;
 }

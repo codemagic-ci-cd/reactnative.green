@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { distributionUrlOf, gradleVersionOf, planGradleWrapper, planSdkVersions, sdkVersionsOf, withDistributionUrl, withSdkVersions } from './gradle.mjs';
+import {
+  agpOptOutsOf,
+  distributionUrlOf,
+  gradleVersionOf,
+  planAgpOptOuts,
+  planGradleWrapper,
+  planSdkVersions,
+  sdkVersionsOf,
+  withAgpOptOuts,
+  withDistributionUrl,
+  withSdkVersions,
+} from './gradle.mjs';
 
 // The committed wrapper of react-native-screenshot-aware 1.3.21's demo app, and the template's for 0.84.
 const committed = [
@@ -129,5 +140,45 @@ describe('Kotlin version', () => {
     expect(planSdkVersions(bootsplashBuildGradle, { kotlinVersion: 'latest' })).toEqual([]);
     expect(planSdkVersions('kotlinVersion = "2.1"\n', { kotlinVersion: '2.2.0' })).toEqual([]);
     expect(planSdkVersions('kotlinVersion = project.kotlin\n', { kotlinVersion: '2.2.0' })).toEqual([]);
+  });
+});
+
+// The gradle.properties of react-native-bootsplash 7.3.3's example (written for 0.86), without its
+// comments, and the opt-outs the 0.87.1 template sets.
+const demoProperties = [
+  'org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m',
+  'android.useAndroidX=true',
+  '# android.builtInKotlin=false is a comment here, not a setting',
+  'newArchEnabled=true',
+  'hermesEnabled=true',
+  'edgeToEdgeEnabled=false',
+].join('\n');
+const template87OptOuts = { 'android.builtInKotlin': 'false', 'android.newDsl': 'false' };
+
+describe('Android Gradle plugin opt-outs', () => {
+  it('reads the opt-outs a gradle.properties sets, ignoring comments', () => {
+    expect(agpOptOutsOf(demoProperties)).toEqual({});
+    expect(agpOptOutsOf('android.builtInKotlin = true\nandroid.newDsl=false\n')).toEqual({ 'android.builtInKotlin': 'true', 'android.newDsl': 'false' });
+    expect(agpOptOutsOf('')).toEqual({});
+  });
+
+  it('adds the opt-outs the template sets and the demo app does not', () => {
+    expect(planAgpOptOuts(demoProperties, template87OptOuts)).toEqual([
+      { name: 'android.builtInKotlin', to: 'false' },
+      { name: 'android.newDsl', to: 'false' },
+    ]);
+    // A demo app's own choice is kept, whatever it is; screens 4.27.0 sets both.
+    expect(planAgpOptOuts(`${demoProperties}\nandroid.builtInKotlin=true\n`, template87OptOuts)).toEqual([{ name: 'android.newDsl', to: 'false' }]);
+    expect(planAgpOptOuts(withAgpOptOuts(demoProperties, template87OptOuts), template87OptOuts)).toEqual([]);
+    // The 0.86 template sets neither, so a demo app written for 0.87 keeps its opt-outs there.
+    expect(planAgpOptOuts(withAgpOptOuts(demoProperties, template87OptOuts), {})).toEqual([]);
+    expect(planAgpOptOuts(demoProperties, null)).toEqual([]);
+  });
+
+  it('appends the opt-outs, keeping every existing line', () => {
+    expect(withAgpOptOuts(demoProperties, template87OptOuts)).toBe(`${demoProperties}\nandroid.builtInKotlin=false\nandroid.newDsl=false\n`);
+    expect(withAgpOptOuts(`${demoProperties}\n`, { 'android.newDsl': 'false' })).toBe(`${demoProperties}\nandroid.newDsl=false\n`);
+    expect(withAgpOptOuts('', template87OptOuts)).toBe('android.builtInKotlin=false\nandroid.newDsl=false\n');
+    expect(withAgpOptOuts(demoProperties, { hermesEnabled: 'false' })).toBe(demoProperties);
   });
 });
