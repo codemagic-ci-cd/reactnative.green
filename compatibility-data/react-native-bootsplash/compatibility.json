@@ -21,8 +21,8 @@
         "status": "incompatible",
         "tested": { "library": "7.3.3", "reactNative": "0.87.1" },
         "checks": { "buildIos": "passed", "buildAndroid": "failed", "tests": "none" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac6750ade4f6899ca0ceb40",
-        "testedAt": "2026-10-07T17:56:34Z"
+        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac73290de4f6899ca0d1822",
+        "testedAt": "2026-10-08T06:13:04Z"
       }
     }
   }
