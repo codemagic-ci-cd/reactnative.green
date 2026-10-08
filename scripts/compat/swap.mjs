@@ -6,15 +6,18 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { join, posix } from 'node:path';
 import { outDir, readJson, writeJson } from './lib/config.mjs';
 import {
+  APP_BUILD_GRADLE,
   BUILD_GRADLE,
   GRADLE_PROPERTIES,
   gradleVersionOf,
   KOTLIN_VERSION_KEY,
   planAgpOptOuts,
   planGradleWrapper,
+  planProguardFile,
   planSdkVersions,
   withAgpOptOuts,
   withDistributionUrl,
+  withProguardFile,
   withSdkVersions,
   WRAPPER_PROPERTIES,
 } from './lib/gradle.mjs';
@@ -122,6 +125,20 @@ if (!registry.agpOptOuts) {
   if (changes.length > 0) {
     writeFileSync(repoPath(gradlePropertiesFile), withAgpOptOuts(current, Object.fromEntries(changes.map((c) => [c.name, c.to]))));
     for (const { name, to } of changes) plan.changes.push({ file: gradlePropertiesFile, name, from: '(not set)', to, reason: optOutReason });
+  }
+}
+
+// The default ProGuard file follows too: AGP 9 refuses `proguard-android.txt`, which every template
+// up to 0.86 named, even with minification off, and the 0.87 template names
+// `proguard-android-optimize.txt`, which earlier plugins accept as well. A bare demo app's reference
+// is changed to the template's, never back.
+const appBuildGradleFile = `${demoApp}/${APP_BUILD_GRADLE}`;
+if (registry.proguardFile && demoKind === 'bare' && existsSync(repoPath(appBuildGradleFile))) {
+  const current = readFileSync(repoPath(appBuildGradleFile), 'utf8');
+  const change = planProguardFile(current, registry.proguardFile);
+  if (change) {
+    writeFileSync(repoPath(appBuildGradleFile), withProguardFile(current, change.to));
+    plan.changes.push({ file: appBuildGradleFile, name: 'getDefaultProguardFile', from: change.from, to: change.to, reason: `${sdkReason}; its Android Gradle plugin refuses the old file` });
   }
 }
 

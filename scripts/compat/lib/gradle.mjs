@@ -16,6 +16,8 @@ export const BUILD_GRADLE = 'android/build.gradle';
 export const TEMPLATE_BUILD_GRADLE = `package/template/${BUILD_GRADLE}`;
 export const GRADLE_PROPERTIES = 'android/gradle.properties';
 export const TEMPLATE_GRADLE_PROPERTIES = `package/template/${GRADLE_PROPERTIES}`;
+export const APP_BUILD_GRADLE = 'android/app/build.gradle';
+export const TEMPLATE_APP_BUILD_GRADLE = `package/template/${APP_BUILD_GRADLE}`;
 
 /** The distributionUrl value as written in the file ("https\://services.gradle.org/..."), or null. */
 export function distributionUrlOf(properties) {
@@ -161,4 +163,37 @@ export function withAgpOptOuts(properties, optOuts) {
   const text = properties ?? '';
   const separator = text === '' || text.endsWith('\n') ? '' : '\n';
   return `${text}${separator}${lines.join('\n')}\n`;
+}
+
+// The default ProGuard rules the app's build.gradle names in `getDefaultProguardFile(...)`. AGP 9
+// refuses `proguard-android.txt`, which every template up to 0.86 named, even with minification off:
+// "`getDefaultProguardFile('proguard-android.txt')` is no longer supported since it includes
+// `-dontoptimize`". The 0.87 template names `proguard-android-optimize.txt`, which every earlier
+// plugin accepts too, so a demo app's reference is changed to the template's and never back.
+export const LEGACY_PROGUARD_FILE = 'proguard-android.txt';
+export const OPTIMIZE_PROGUARD_FILE = 'proguard-android-optimize.txt';
+
+const DEFAULT_PROGUARD_FILE = /getDefaultProguardFile\(\s*(["'])(proguard-android(?:-optimize)?\.txt)\1\s*\)/g;
+
+/** The default ProGuard file an app build.gradle names, or null when it names none. */
+export function defaultProguardFileOf(appBuildGradle) {
+  return [...(appBuildGradle ?? '').matchAll(DEFAULT_PROGUARD_FILE)][0]?.[2] ?? null;
+}
+
+/**
+ * The change to make, or null: only from the legacy file to the optimize one, and only when the
+ * template names the optimize one.
+ * @returns {{ from: string, to: string } | null}
+ */
+export function planProguardFile(currentAppBuildGradle, templateFile) {
+  const from = defaultProguardFileOf(currentAppBuildGradle);
+  if (from !== LEGACY_PROGUARD_FILE || templateFile !== OPTIMIZE_PROGUARD_FILE) return null;
+  return { from, to: templateFile };
+}
+
+/** The same app build.gradle with every `getDefaultProguardFile` of the legacy file naming the given one. */
+export function withProguardFile(appBuildGradle, file) {
+  return (appBuildGradle ?? '').replace(DEFAULT_PROGUARD_FILE, (match, quote, named) =>
+    named === LEGACY_PROGUARD_FILE ? `getDefaultProguardFile(${quote}${file}${quote})` : match,
+  );
 }
