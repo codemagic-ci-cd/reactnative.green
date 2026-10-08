@@ -162,6 +162,30 @@ describe('jest preset', () => {
     expect(swap('v2.1.3', '0.88.0-rc.3').root.devDependencies['@react-native/jest-preset']).toBe('0.88.0-rc.3');
   });
 
+  it('moves the dependency across lines when the preset is set in jest.config.js, not package.json', () => {
+    // react-native-gesture-handler 3.2.1 and react-native-reanimated 4.6.0 pin @react-native/jest-preset
+    // 0.87.0 and name the preset in jest.config.js; on 0.86.3 the 0.87 preset mocks a module 0.86 lacks.
+    const root = structuredClone(tags['v2.1.3'].root);
+    delete root.jest;
+    const plan = planSwap({
+      manifests: [
+        { file: 'package.json', manifest: root },
+        { file: 'example/package.json', manifest: tags['v2.1.3'].example },
+      ],
+      demoFile: 'example/package.json',
+      demoKind: 'expo',
+      target: '0.85.3',
+      registry: registryFor('0.85.3'),
+    });
+    const swapped = plan.manifests.find((m) => m.file === 'package.json').manifest;
+    const expected = pickLineVersion('0.85.3', registryFixture.versions['@react-native/jest-preset']);
+    expect(expected).toMatch(/^0\.85\./);
+    expect(swapped.devDependencies['@react-native/jest-preset']).toBe(expected);
+    expect(swapped).not.toHaveProperty('jest');
+    expect(plan.changes).toContainEqual({ file: 'package.json', name: '@react-native/jest-preset', from: '0.87.1', to: expected, reason: 'jest preset for this line' });
+    expect(plan.changes.filter((c) => c.name === '@react-native/jest-preset')).toHaveLength(1);
+  });
+
   it('chooses from the published versions only', () => {
     expect(chooseJestPreset('0.84.1', registryFixture.versions['@react-native/jest-preset']).preset).toBe('react-native');
     expect(chooseJestPreset('0.85.3', ['0.85.1', '0.85.2'])).toEqual({ preset: '@react-native/jest-preset', version: '0.85.2' });

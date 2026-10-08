@@ -286,8 +286,12 @@ check failed, and the build's `swap.txt` lists every change below that was made.
 the library published at its tag:
 
 1. **Package versions**: React Native and what moves with it, by the three cases above.
-2. **Jest preset**: switched only across lines, when `@react-native/jest-preset` exists or stops
-   existing for the target line.
+2. **Jest preset**: across lines only. A `@react-native/jest-preset` dependency moves to the target
+   line's version like the other `@react-native/*` packages: a preset for 0.87 mocks
+   `react-native/setup-env`, which 0.86 does not have, so every suite fails to start. When
+   `package.json` sets `jest.preset`, the preset is also switched, and the dependency added or
+   removed, as `@react-native/jest-preset` exists or stops existing for the target line. A preset set
+   in `jest.config.js` keeps the dependency it names.
 3. **Expo SDK**: across lines only, and only when the closest SDK is not the one the demo app uses.
 4. **Gradle wrapper**: always set to the Gradle version of the React Native app template for the
    target line, because the React Native version dictates it and a demo app's committed wrapper can

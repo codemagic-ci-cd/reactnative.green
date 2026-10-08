@@ -135,7 +135,13 @@ export function planSwap({ manifests, demoFile, demoKind, target, registry, libr
       return version ? [version, 'pinned in step with react-native'] : null;
     }
 
-    if (name === JEST_PRESET_PACKAGE) return null; // handled with the jest configuration below
+    if (name === JEST_PRESET_PACKAGE) {
+      // The dependency moves with the line like any @react-native/* package: a preset for 0.87 mocks
+      // react-native/setup-env, which 0.86 does not have, and every suite fails to start. Adding or
+      // removing it, and switching `jest.preset`, is done with the jest configuration below, which
+      // only sees a preset set in package.json; a preset set in jest.config.js keeps its dependency.
+      return jest?.version ? [jest.version, 'jest preset for this line'] : null;
+    }
     if (TEMPLATE_PACKAGES(name)) {
       if (registry.template) {
         return templateVersions[name]
