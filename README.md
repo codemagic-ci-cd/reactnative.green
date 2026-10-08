@@ -252,8 +252,11 @@ be exact, and both must be on lines the catalog lists.
 
 The library's own demo app is what gets built, so a red cell can be caused by the demo app rather
 than the library. The swap changes as little as the target needs, in the repository's root
-`package.json`, the package's own and the demo app's, so the workspace resolves one React Native
-version. The build log (`swap.txt`) says which case applied and lists every change.
+`package.json`, the package's own, the demo app's and every other workspace package's (the folders
+the root's `workspaces` names, one-level globs included), so the workspace resolves one React Native
+version and one React. A sibling package left on another `react` or `react-test-renderer` installs a
+second copy of React, and the tests fail with null hooks. The build log (`swap.txt`) says which case
+applied and lists every change.
 
 - **Same version.** When the demo app already uses the version under test, no package version
   changes: the check runs the library's own setup (apart from the Gradle wrapper, below).
@@ -263,7 +266,8 @@ version. The build log (`swap.txt`) says which case applied and lists every chan
   - `react-native` becomes the version under test.
   - `react`, `react-test-renderer` and the `@react-native-community/cli` packages take the versions
     from the React Native app template for that line. A line without a template (a very new release
-    candidate) takes `react` from React Native's own peer range and leaves the others.
+    candidate) takes `react` from React Native's own peer range and leaves the others. `react-dom`
+    takes whatever `react` is set to: React DOM refuses a `react` of another version.
   - Every `@react-native/*` package takes the same version as React Native, or the newest release or
     release candidate on that line when that exact version was never published. Nightlies are never
     used.

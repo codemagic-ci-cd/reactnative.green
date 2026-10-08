@@ -54,6 +54,32 @@ export function chooseJestPreset(target, jestPresetVersions = []) {
   return version ? { preset: JEST_PRESET_PACKAGE, version } : { preset: 'react-native', version: null };
 }
 
+/**
+ * The package folders a root package.json's `workspaces` names, relative to the root: exact folders
+ * and one-level globs such as "packages/*". Negations and deeper globs are skipped. Every workspace
+ * package is swapped, not only the package under test and the demo app: a sibling left on another
+ * react or react-test-renderer installs a second copy of React, and its tests fail on null hooks.
+ * @param {string[] | { packages?: string[] } | undefined} workspaces
+ * @param {(dir: string) => string[]} listDirs subfolder names of a folder relative to the root
+ * @returns {string[]}
+ */
+export function workspacePackageDirs(workspaces, listDirs) {
+  const patterns = Array.isArray(workspaces) ? workspaces : (workspaces?.packages ?? []);
+  const dirs = [];
+  for (const pattern of patterns) {
+    if (typeof pattern !== 'string' || pattern.startsWith('!') || pattern.includes('**')) continue;
+    const clean = pattern.replace(/^\.\//, '').replace(/\/+$/, '');
+    if (!clean.endsWith('/*')) {
+      if (!clean.includes('*')) dirs.push(clean);
+      continue;
+    }
+    const parent = clean.slice(0, -2);
+    if (parent.includes('*')) continue;
+    for (const name of listDirs(parent)) dirs.push(parent ? `${parent}/${name}` : name);
+  }
+  return [...new Set(dirs)].sort();
+}
+
 /** "~57.0.18" -> "57.0.18"; ranges and protocols such as "*" or "workspace:*" -> null. */
 function exactPart(spec) {
   const version = typeof spec === 'string' ? spec.replace(/^[~^=]/, '') : '';
@@ -141,6 +167,11 @@ export function planSwap({ manifests, demoFile, demoKind, target, registry, libr
       // removing it, and switching `jest.preset`, is done with the jest configuration below, which
       // only sees a preset set in package.json; a preset set in jest.config.js keeps its dependency.
       return jest?.version ? [jest.version, 'jest preset for this line'] : null;
+    }
+    if (name === 'react-dom') {
+      // React DOM refuses a react of another version, so it takes whatever react is set to.
+      const react = decide('react', current, manifest);
+      return react ? [react[0], 'matches react'] : null;
     }
     if (TEMPLATE_PACKAGES(name)) {
       if (registry.template) {

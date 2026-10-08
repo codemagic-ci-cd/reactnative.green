@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import tags from '../fixtures/library-manifests.json' with { type: 'json' };
 import registryFixture from '../fixtures/registry.json' with { type: 'json' };
 import { lineOf } from './semver.mjs';
-import { chooseExpoSdk, chooseJestPreset, formatSwap, isRegistrySpec, localSpec, pickLineVersion, planSwap, swapCase } from './swap.mjs';
+import { chooseExpoSdk, chooseJestPreset, formatSwap, isRegistrySpec, localSpec, pickLineVersion, planSwap, swapCase, workspacePackageDirs } from './swap.mjs';
 
 // Registry data captured from npm on 2026-09-29 (see fixtures/registry.json), shaped as
 // gatherSwapRegistry returns it for one target.
@@ -302,3 +302,63 @@ describe('pointing the demo app at the checked-out package', () => {
   });
 });
 
+
+describe('react-dom and workspace packages', () => {
+  // react-native-reanimated 4.7.0 pins react, react-dom and react-test-renderer 19.3.0 in its package;
+  // moving react alone left react-dom behind and React DOM refused the pair. In react-navigation,
+  // packages/native pins react-dom with no react of its own.
+  function withReactDom(tag, target, extra) {
+    const root = structuredClone(tags[tag].root);
+    root.devDependencies = { ...root.devDependencies, ...extra };
+    const plan = planSwap({
+      manifests: [
+        { file: 'package.json', manifest: root },
+        { file: 'example/package.json', manifest: tags[tag].example },
+      ],
+      demoFile: 'example/package.json',
+      demoKind: KIND[tag],
+      target,
+      registry: registryFor(target),
+    });
+    return { plan, root: plan.manifests.find((m) => m.file === 'package.json').manifest };
+  }
+
+  it('sets react-dom to the version react gets from the template', () => {
+    const { plan, root } = withReactDom('v1.3.21', '0.87.1', { 'react-dom': '19.1.0' });
+    expect(root.devDependencies['react-dom']).toBe(root.devDependencies.react);
+    expect(plan.changes).toContainEqual({ file: 'package.json', name: 'react-dom', from: '19.1.0', to: root.devDependencies.react, reason: 'matches react' });
+  });
+
+  it('moves react-dom in a manifest that has no react of its own', () => {
+    const root = structuredClone(tags['v1.3.21'].root);
+    delete root.devDependencies.react;
+    root.devDependencies['react-dom'] = '19.1.0';
+    const plan = planSwap({
+      manifests: [{ file: 'package.json', manifest: root }, { file: 'example/package.json', manifest: tags['v1.3.21'].example }],
+      demoFile: 'example/package.json',
+      demoKind: 'bare',
+      target: '0.87.1',
+      registry: registryFor('0.87.1'),
+    });
+    const swapped = plan.manifests.find((m) => m.file === 'package.json').manifest;
+    expect(swapped.devDependencies['react-dom']).toBe(registryFor('0.87.1').template.dependencies.react);
+  });
+
+  it('leaves react-dom alone in the same-version and patch cases', () => {
+    expect(withReactDom('v2.1.3', '0.87.1', { 'react-dom': '19.1.0' }).root.devDependencies['react-dom']).toBe('19.1.0');
+  });
+
+  it('lists workspace package folders from exact names and one-level globs', () => {
+    const tree = { packages: ['core', 'native', 'bottom-tabs'], apps: ['fabric-example'], '': ['packages', 'apps', 'example'] };
+    const listDirs = (dir) => tree[dir] ?? [];
+    expect(workspacePackageDirs(['packages/*', 'example', './apps/*', '!packages/core', 'tools/**'], listDirs)).toEqual([
+      'apps/fabric-example',
+      'example',
+      'packages/bottom-tabs',
+      'packages/core',
+      'packages/native',
+    ]);
+    expect(workspacePackageDirs({ packages: ['packages/*'] }, listDirs)).toEqual(['packages/bottom-tabs', 'packages/core', 'packages/native']);
+    expect(workspacePackageDirs(undefined, listDirs)).toEqual([]);
+  });
+});
