@@ -1,7 +1,7 @@
 // npm registry access for the compatibility scripts. Everything that touches the network is here, so
 // the logic in swap.mjs and watch.mjs stays pure and testable with fixtures.
 import { gunzipSync } from 'node:zlib';
-import { distributionUrlOf, TEMPLATE_WRAPPER_PROPERTIES } from './gradle.mjs';
+import { distributionUrlOf, sdkVersionsOf, TEMPLATE_BUILD_GRADLE, TEMPLATE_WRAPPER_PROPERTIES } from './gradle.mjs';
 import { lineOf } from './semver.mjs';
 import { pickLineVersion } from './swap.mjs';
 import { readTarFile } from './tar.mjs';
@@ -83,17 +83,21 @@ export async function gatherSwapRegistry({ manifests, demoKind, target }) {
   const reactNative = await fetchPackument('react-native');
   if (!reactNative.manifests[target]) throw new Error(`react-native ${target} is not published`);
 
-  // The template's package.json and its Gradle wrapper settings, from one download.
+  // The template's package.json, its Gradle wrapper settings and its Android SDK versions, from one
+  // download.
   const templatePackument = await fetchPackument('@react-native-community/template');
   const templateVersion = pickLineVersion(target, templatePackument.versions);
   let template = null;
   let gradleDistributionUrl = null;
+  let sdkVersions = null;
   if (templateVersion) {
     const { tarball, archive } = await fetchArchive(templatePackument, templateVersion);
     const manifest = readTarFile(archive, 'package/template/package.json');
     if (!manifest) throw new Error(`${tarball} has no package/template/package.json`);
     template = JSON.parse(manifest.toString('utf8'));
     gradleDistributionUrl = distributionUrlOf(readTarFile(archive, TEMPLATE_WRAPPER_PROPERTIES)?.toString('utf8') ?? '');
+    const buildGradle = readTarFile(archive, TEMPLATE_BUILD_GRADLE)?.toString('utf8');
+    sdkVersions = buildGradle ? sdkVersionsOf(buildGradle) : null;
   }
 
   return {
@@ -101,6 +105,7 @@ export async function gatherSwapRegistry({ manifests, demoKind, target }) {
     template,
     templateVersion,
     gradleDistributionUrl,
+    sdkVersions,
     reactNativePeers: reactNative.manifests[target].peerDependencies ?? {},
     expoSdks: demoKind === 'expo' ? await fetchExpoSdks() : [],
   };
