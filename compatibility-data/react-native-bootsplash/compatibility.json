@@ -18,11 +18,11 @@
         "testedAt": "2026-10-07T18:25:13Z"
       },
       "0.87": {
-        "status": "incompatible",
+        "status": "compatible",
         "tested": { "library": "7.3.3", "reactNative": "0.87.1" },
-        "checks": { "buildIos": "passed", "buildAndroid": "failed", "tests": "none" },
-        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac7368fde4f6899ca0d18f7",
-        "testedAt": "2026-10-08T06:26:13Z"
+        "checks": { "buildIos": "passed", "buildAndroid": "passed", "tests": "none" },
+        "buildUrl": "https://codemagic.io/app/6abb237e93eec1a23c19ef91/build/6ac7391fde4f6899ca0d1988",
+        "testedAt": "2026-10-08T06:40:24Z"
       }
     }
   }
