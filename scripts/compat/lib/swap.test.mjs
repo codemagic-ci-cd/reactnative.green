@@ -362,3 +362,43 @@ describe('react-dom and workspace packages', () => {
     expect(workspacePackageDirs(undefined, listDirs)).toEqual([]);
   });
 });
+
+describe('react-native-worklets for reanimated 4', () => {
+  // @react-navigation/drawer 7.12.8 and react-native-tab-view 4.1.3 pin react-native-reanimated ^3.19.4;
+  // the Expo rule moved it to 4.5.1 and the tests failed with "Cannot find module 'react-native-worklets'".
+  const sdk57 = { sdk: 57, version: '57.0.0', reactNativeLine: '0.87', bundled: { 'react-native-reanimated': '4.5.1', 'react-native-worklets': '0.10.1' } };
+  function plan(exampleDeps, sdks = [sdk57]) {
+    const example = structuredClone(tags['v2.0.0'].example);
+    example.dependencies = { ...example.dependencies, ...exampleDeps };
+    const result = planSwap({
+      manifests: [{ file: 'package.json', manifest: tags['v2.0.0'].root }, { file: 'example/package.json', manifest: example }],
+      demoFile: 'example/package.json',
+      demoKind: 'expo',
+      target: '0.87.1',
+      registry: registryFor('0.87.1', { expoSdks: sdks }),
+    });
+    return { changes: result.changes, example: result.manifests.find((m) => m.file === 'example/package.json').manifest };
+  }
+
+  it('adds the bundled worklets next to a reanimated the SDK moved to 4', () => {
+    const { changes, example } = plan({ 'react-native-reanimated': '^3.19.4' });
+    expect(example.dependencies['react-native-reanimated']).toBe('4.5.1');
+    expect(example.dependencies['react-native-worklets']).toBe('0.10.1');
+    expect(changes).toContainEqual({ file: 'example/package.json', name: 'react-native-worklets', from: null, to: '0.10.1', reason: 'react-native-reanimated 4 needs it; bundled with Expo SDK 57' });
+  });
+
+  it('moves worklets that are already there instead of adding a second entry', () => {
+    const { changes, example } = plan({ 'react-native-reanimated': '4.3.1', 'react-native-worklets': '0.8.3' });
+    expect(example.dependencies['react-native-worklets']).toBe('0.10.1');
+    expect(changes.filter((c) => c.name === 'react-native-worklets')).toHaveLength(1);
+    expect(changes.find((c) => c.name === 'react-native-worklets').from).toBe('0.8.3');
+  });
+
+  it('adds nothing when reanimated stays on 3, has no SDK version, or is absent', () => {
+    const sdk3 = { ...sdk57, bundled: { 'react-native-reanimated': '3.19.4', 'react-native-worklets': '0.10.1' } };
+    expect(plan({ 'react-native-reanimated': '^3.19.4' }, [sdk3]).example.dependencies).not.toHaveProperty('react-native-worklets');
+    const noWorklets = { ...sdk57, bundled: { 'react-native-reanimated': '4.5.1' } };
+    expect(plan({ 'react-native-reanimated': '^3.19.4' }, [noWorklets]).example.dependencies).not.toHaveProperty('react-native-worklets');
+    expect(plan({}).example.dependencies).not.toHaveProperty('react-native-worklets');
+  });
+});

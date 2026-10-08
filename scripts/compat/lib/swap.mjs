@@ -23,6 +23,8 @@ import { isReleaseCandidate, isStable, lineOf, newestOnLine, parseVersion } from
 
 const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies'];
 const JEST_PRESET_PACKAGE = '@react-native/jest-preset';
+const REANIMATED_PACKAGE = 'react-native-reanimated';
+const WORKLETS_PACKAGE = 'react-native-worklets';
 const TEMPLATE_PACKAGES = (name) =>
   name === 'react' || name === 'react-test-renderer' || name.startsWith('@react-native-community/cli');
 
@@ -209,7 +211,21 @@ export function planSwap({ manifests, demoFile, demoKind, target, registry, libr
       }
     }
 
-    // The jest preset is the one change allowed to add or remove a dependency, and only across lines.
+    // Two changes may add a dependency, both across lines only. First: react-native-reanimated 4
+    // needs react-native-worklets, which the Expo SDK that brings reanimated 4 bundles too, and a
+    // library written for reanimated 3 has no worklets dependency to move.
+    if (expo && !keepExpo) {
+      const field = DEPENDENCY_FIELDS.find((f) => next[f]?.[REANIMATED_PACKAGE]);
+      const reanimated = field ? parseVersion(exactPart(next[field][REANIMATED_PACKAGE]) ?? '') : null;
+      const worklets = expo.bundled[WORKLETS_PACKAGE];
+      const present = DEPENDENCY_FIELDS.some((f) => next[f]?.[WORKLETS_PACKAGE]);
+      if (reanimated && reanimated.major >= 4 && worklets && !present) {
+        next[field] = { ...next[field], [WORKLETS_PACKAGE]: worklets };
+        changes.push({ file, name: WORKLETS_PACKAGE, from: null, to: worklets, reason: `${REANIMATED_PACKAGE} ${reanimated.major} needs it; bundled with Expo SDK ${expo.sdk}` });
+      }
+    }
+
+    // Second: the jest preset, which may also be removed.
     if (jest && typeof next.jest?.preset === 'string') {
       if (next.jest.preset !== jest.preset) {
         changes.push({

@@ -276,7 +276,11 @@ applied and lists every change.
   - Expo demo apps move to the Expo SDK whose React Native line is closest (the lower SDK on a tie),
     with every Expo-managed module at the version that SDK bundles, unless the demo app is already
     on that SDK, in which case its Expo versions are kept. Bare demo apps keep their Expo packages.
-  - Nothing else changes, and nothing is added apart from the jest preset.
+    When that moves `react-native-reanimated` to 4 (or the library already pins 4) and the manifest
+    has no `react-native-worklets`, the worklets package reanimated 4 needs is added at the version
+    the SDK bundles: a library written for reanimated 3 has no such dependency, and its tests fail
+    to load reanimated without it.
+  - Nothing else changes, and nothing is added apart from the jest preset and `react-native-worklets`.
 
 Lockfiles are regenerated. Each check then runs the package's `setup.prepare` commands; each platform
 build runs `expo prebuild` for Expo demo apps, and iOS runs `pod install` and builds for the
@@ -297,6 +301,7 @@ the library published at its tag:
    removed, as `@react-native/jest-preset` exists or stops existing for the target line. A preset set
    in `jest.config.js` keeps the dependency it names.
 3. **Expo SDK**: across lines only, and only when the closest SDK is not the one the demo app uses.
+   `react-native-worklets` is added where reanimated 4 needs it (above).
 4. **Gradle wrapper**: always set to the Gradle version of the React Native app template for the
    target line, because the React Native version dictates it and a demo app's committed wrapper can
    be too old even for its own React Native version. For Expo demo apps it is set right after
